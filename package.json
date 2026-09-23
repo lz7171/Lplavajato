@@ -1,9 +1,0 @@
-{
-  "name": "lz-lava-jato",
-  "version": "1.0.0",
-  "private": true,
-  "description": "Site + agendamento inteligente para LZ Lava-Jato",
-  "dependencies": {
-    "@vercel/kv": "^2.0.0"
-  }
-}
