@@ -1,74 +1,84 @@
 const { kv } = require("@vercel/kv");
-
-const OPEN_DAYS = [0, 4, 5, 6];
-const OPEN_TIME = "08:00";
-const CLOSE_TIME = "18:30";
-const SLOT_MINUTES = 30;
-
-function timeToMinutes(t) {
-  const [h, m] = t.split(":").map(Number);
-  return h * 60 + m;
-}
-
-function buildSlots() {
-  const start = timeToMinutes(OPEN_TIME);
-  const end = timeToMinutes(CLOSE_TIME);
-  const slots = [];
-  for (let m = start; m <= end; m += SLOT_MINUTES) {
-    slots.push(`${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`);
-  }
-  return slots;
-}
-
-function isValidDate(dateStr) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const date = new Date(Date.UTC(y, m - 1, d));
-  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return false;
-  return OPEN_DAYS.includes(date.getUTCDay());
-}
-
-function isValidSlot(timeStr) {
-  return buildSlots().includes(timeStr);
-}
+const L = require("./_lib");
 
 module.exports = async function handler(req, res) {
+  res.setHeader("Cache-Control", "no-store");
+
   if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
     res.status(405).json({ error: "Método não permitido." });
     return;
   }
 
-  const { date, time, name, phone, vehicle, extras } = req.body || {};
+  const body = L.readBody(req);
+  const now = L.nowInSaoPaulo();
 
-  if (!isValidDate(date)) {
-    res.status(400).json({ error: "Escolha um dia válido (quinta a domingo)." });
+  const date = body.date;
+  const time = body.time;
+  const name = L.cleanName(body.name);
+  const phone = L.cleanPhone(body.phone);
+  const vehicle = L.cleanVehicle(body.vehicle);
+  const extras = L.cleanExtras(body.extras);
+
+  if (!L.isBookableDate(date, now)) {
+    res.status(400).json({ error: "Escolha um dia válido (quinta a domingo, nos próximos dias)." });
     return;
   }
-  if (!isValidSlot(time)) {
-    res.status(400).json({ error: "Escolha um horário válido (08:00–18:30)." });
+  if (!L.isValidSlot(time)) {
+    res.status(400).json({ error: `Escolha um horário válido (${L.SLOTS[0]}–${L.SLOTS[L.SLOTS.length - 1]}).` });
     return;
   }
-  if (!name || !phone || !vehicle) {
-    res.status(400).json({ error: "Preencha todos os campos antes de confirmar." });
+  if (L.isPastSlot(date, time, now)) {
+    res.status(400).json({ error: "Esse horário já passou. Escolha outro." });
     return;
   }
+  if (!name) {
+    res.status(400).json({ error: "Informe seu nome (2 a 60 letras)." });
+    return;
+  }
+  if (!phone) {
+    res.status(400).json({ error: "Informe um WhatsApp válido com DDD, ex.: (22) 99999-9999." });
+    return;
+  }
+  if (!vehicle) {
+    res.status(400).json({ error: "Escolha o tipo de veículo." });
+    return;
+  }
+  if (!extras) {
+    res.status(400).json({ error: "Adicionais inválidos." });
+    return;
+  }
+
+  const setKey = `booked:${date}`;
+  let reserved = false;
 
   try {
-    const added = await kv.sadd(`booked:${date}`, time);
+    const okIp = await L.withinLimit(kv, `rl:book:ip:${L.clientIp(req)}`, 6, 10 * 60);
+    const okPhone = await L.withinLimit(kv, `rl:book:phone:${phone}`, 4, 60 * 60);
+    if (!okIp || !okPhone) {
+      res.status(429).json({ error: "Muitas tentativas. Aguarde alguns minutos e tente de novo." });
+      return;
+    }
 
+    const added = await kv.sadd(setKey, time);
     if (added === 0) {
       res.status(409).json({ error: "Esse horário acabou de ser reservado por outra pessoa. Escolha outro." });
       return;
     }
+    reserved = true;
 
-    await kv.set(
-      `detail:${date}:${time}`,
-      JSON.stringify({ name, phone, vehicle, extras: extras || [], createdAt: Date.now() }),
-      { ex: 60 * 60 * 24 * 45 }
-    );
+    const ttl = L.ttlForDate(date);
+    const total = L.computeTotal(vehicle, extras);
+    await kv.expire(setKey, ttl);
+    await kv.set(`detail:${date}:${time}`, { date, time, name, phone, vehicle, extras, total, createdAt: Date.now() }, { ex: ttl });
 
-    res.status(200).json({ ok: true, date, time });
+    res.status(200).json({ ok: true, date, time, total });
   } catch (err) {
-    res.status(500).json({ error: "Não foi possível reservar o horário. Verifique se o Vercel KV foi conectado a este projeto." });
+    console.error("book error:", err);
+    if (reserved) {
+      // não deixa o horário preso se algo falhou depois de reservar
+      try { await kv.srem(setKey, time); } catch (e) { console.error("rollback error:", e); }
+    }
+    res.status(500).json({ error: "Não foi possível reservar o horário agora. Tente novamente em instantes." });
   }
 };

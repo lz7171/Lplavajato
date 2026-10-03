@@ -1,8 +1,14 @@
 {
   "name": "lz-lava-jato",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Site + agendamento inteligente para LZ Lava-Jato",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
   "dependencies": {
     "@vercel/kv": "^2.0.0"
   }
