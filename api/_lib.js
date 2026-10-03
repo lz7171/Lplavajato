@@ -7,9 +7,8 @@ const TIME_ZONE = "America/Sao_Paulo";
 
 const OPEN_DAYS = [0, 4, 5, 6]; // Dom, Qui, Sex, Sáb
 const OPEN_TIME = "08:00";
-const CLOSE_TIME = "18:30"; // horário de fechamento: o último atendimento COMEÇA 30 min antes
-const SLOT_MINUTES = 30;
-const MAX_DAYS_AHEAD = 60;
+const CLOSE_TIME = "18:00"; // fim do último atendimento (16:00 + 2h)
+const SLOT_MINUTES = 120; // um atendimento a cada 2 horas: 08, 10, 12, 14, 16
 
 const VEHICLES = { Moto: 30, Carro: 60 };
 const EXTRAS = { Pretinho: 5, RestauraX: 10, Blend: 15, "Descontaminação": 20, Vidros: 15 };
@@ -85,10 +84,28 @@ function isOpenDay(str) {
   return !!d && OPEN_DAYS.includes(d.getUTCDay());
 }
 
-// Data de funcionamento, entre hoje e MAX_DAYS_AHEAD (calculado em Brasília).
+// Semana ativa (segunda a domingo, em Brasília). No domingo, depois do último
+// horário, a agenda passa para a semana seguinte.
+function activeWeekStart(now = nowInSaoPaulo()) {
+  const dow = (parseISODate(now.date).getUTCDay() + 6) % 7; // segunda = 0
+  let monday = addDays(now.date, -dow);
+  if (dow === 6 && now.minutes >= timeToMinutes(SLOTS[SLOTS.length - 1])) monday = addDays(monday, 7);
+  return monday;
+}
+
+// Dias de funcionamento (qui a dom) da semana ativa que ainda não passaram.
+function bookableDates(now = nowInSaoPaulo()) {
+  const start = activeWeekStart(now);
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    const day = addDays(start, i);
+    if (isOpenDay(day) && day >= now.date) out.push(day);
+  }
+  return out;
+}
+
 function isBookableDate(str, now = nowInSaoPaulo()) {
-  if (!isOpenDay(str)) return false;
-  return str >= now.date && str <= addDays(now.date, MAX_DAYS_AHEAD);
+  return bookableDates(now).includes(str);
 }
 
 function isPastSlot(date, time, now = nowInSaoPaulo()) {
@@ -180,7 +197,7 @@ function readBody(req) {
 }
 
 module.exports = {
-  OPEN_DAYS, OPEN_TIME, CLOSE_TIME, SLOT_MINUTES, MAX_DAYS_AHEAD, VEHICLES, EXTRAS, SLOTS,
+  OPEN_DAYS, OPEN_TIME, CLOSE_TIME, SLOT_MINUTES, bookableDates, activeWeekStart, VEHICLES, EXTRAS, SLOTS,
   isValidSlot, nowInSaoPaulo, parseISODate, toISO, addDays, isOpenDay, isBookableDate,
   isPastSlot, pastSlotsFor, cleanName, cleanPhone, cleanVehicle, cleanExtras, computeTotal,
   clientIp, withinLimit, ttlForDate, readBody, timeToMinutes,

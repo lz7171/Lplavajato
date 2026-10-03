@@ -44,7 +44,7 @@ curl -s -X DELETE -H "Authorization: Bearer $TOKEN" "$SITE/api/admin?date=2026-1
 ## Como mudar regras
 
 - **Dias, horários, preços, adicionais:** edite `api/_lib.js`. Os preços também aparecem em `index.html` (lista de serviços e botões) — mantenha iguais. O servidor recalcula o total e ignora preços enviados pelo navegador.
-- **Último horário:** o expediente vai até `CLOSE_TIME` (18:30); o último atendimento começa às 18:00.
+- **Horários:** um atendimento a cada 2 horas (08h, 10h, 12h, 14h, 16h). A agenda abre uma semana por vez (quinta a domingo da semana atual); no domingo, depois do último horário, abre a semana seguinte.
 - **Telefone/nome do WhatsApp:** `WHATSAPP_NUMBER` em `assets/app.js`, links `wa.me` e dados estruturados em `index.html`.
 - **Domínio próprio:** troque `https://lplavajato.vercel.app/` no `index.html` (canonical, og:url, og:image), em `robots.txt` e em `sitemap.xml`.
 

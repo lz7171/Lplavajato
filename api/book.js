@@ -21,7 +21,7 @@ module.exports = async function handler(req, res) {
   const extras = L.cleanExtras(body.extras);
 
   if (!L.isBookableDate(date, now)) {
-    res.status(400).json({ error: "Escolha um dia válido (quinta a domingo, nos próximos dias)." });
+    res.status(400).json({ error: "Escolha um dia da semana atual (quinta a domingo)." });
     return;
   }
   if (!L.isValidSlot(time)) {

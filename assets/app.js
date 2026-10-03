@@ -22,31 +22,30 @@
   function pad(n) { return String(n).padStart(2, "0"); }
   function toISODate(d) { return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; }
 
-  function buildUpcomingDates(count) {
-    const out = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let cursor = new Date(today);
-    while (out.length < count) {
-      if (OPEN_DAYS.includes(cursor.getDay())) out.push(new Date(cursor));
-      cursor.setDate(cursor.getDate() + 1);
+  async function renderDatePills() {
+    datePillsEl.innerHTML = `<p class="slot-hint">Carregando dias…</p>`;
+    let dates;
+    try {
+      const res = await fetch("/api/slots");
+      const data = await res.json();
+      if (!res.ok || !Array.isArray(data.dates)) throw new Error("Resposta inválida.");
+      dates = data.dates;
+    } catch (err) {
+      datePillsEl.innerHTML = `<p class="slot-hint">Não consegui carregar os dias agora. Atualize a página.</p>`;
+      return;
     }
-    return out;
-  }
-
-  function renderDatePills() {
-    const dates = buildUpcomingDates(8);
     datePillsEl.innerHTML = "";
-    dates.forEach((d, i) => {
+    dates.forEach((iso, i) => {
+      const [y, m, d] = iso.split("-").map(Number);
       const btn = document.createElement("button");
       btn.type = "button";
       btn.className = "pill";
       btn.setAttribute("aria-pressed", "false");
-      btn.dataset.date = toISODate(d);
-      btn.innerHTML = `${DAY_SHORT[d.getDay()]}<br>${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
-      btn.addEventListener("click", () => selectDate(btn.dataset.date));
+      btn.dataset.date = iso;
+      btn.innerHTML = `${DAY_SHORT[new Date(y, m - 1, d).getDay()]}<br>${pad(d)}/${pad(m)}`;
+      btn.addEventListener("click", () => selectDate(iso));
       datePillsEl.appendChild(btn);
-      if (i === 0) selectDate(btn.dataset.date);
+      if (i === 0) selectDate(iso);
     });
   }
 

@@ -53,21 +53,19 @@ function call(handler, { method = "GET", query = {}, body, headers = {} } = {}) 
   });
 }
 
-// próximo dia de funcionamento a partir de amanhã (sempre no futuro, em horário de Brasília)
-function futureOpenDate(offset = 1) {
-  let d = L.addDays(L.nowInSaoPaulo().date, offset);
-  while (!L.isOpenDay(d)) d = L.addDays(d, 1);
-  return d;
+// dia de funcionamento da semana ativa (o último, para sobrar horário livre)
+function futureOpenDate() {
+  const dates = L.bookableDates();
+  return dates[dates.length - 1];
 }
 
-const valid = (date, extra = {}) => ({ date, time: "09:00", name: "João Silva", phone: "(22) 99864-1962", vehicle: "Moto", extras: ["Pretinho"], ...extra });
+const valid = (date, extra = {}) => ({ date, time: "10:00", name: "João Silva", phone: "(22) 99864-1962", vehicle: "Moto", extras: ["Pretinho"], ...extra });
 
 test.beforeEach(() => fakeKv.reset());
 
-test("horários: 08:00 a 18:00 (18:30 é o fechamento)", () => {
+test("horários: de 2 em 2 horas, de 08:00 às 16:00", () => {
   assert.equal(L.SLOTS[0], "08:00");
-  assert.equal(L.SLOTS[L.SLOTS.length - 1], "18:00");
-  assert.equal(L.SLOTS.length, 21);
+  assert.deepEqual(L.SLOTS, ["08:00", "10:00", "12:00", "14:00", "16:00"]);
 });
 
 test("slots: data válida retorna horários e reservados", async () => {
@@ -76,13 +74,19 @@ test("slots: data válida retorna horários e reservados", async () => {
   const r = await call(slots, { query: { date } });
   assert.equal(r.statusCode, 200);
   assert.deepEqual(r.body.bookedSlots, ["10:00"]);
-  assert.equal(r.body.allSlots.length, 21);
+  assert.equal(r.body.allSlots.length, 5);
+});
+
+test("slots: sem data devolve os dias da semana ativa", async () => {
+  const r = await call(slots, { query: {} });
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual(r.body.dates, L.bookableDates());
 });
 
 test("slots: rejeita data inválida, dia fechado, passada, distante e método errado", async () => {
   let d = L.addDays(L.nowInSaoPaulo().date, 1);
   while (L.isOpenDay(d)) d = L.addDays(d, 1); // dia fechado
-  for (const date of ["", "abc", "2026-02-30", d, "2020-01-02", L.addDays(L.nowInSaoPaulo().date, 90)]) {
+  for (const date of ["abc", "2026-02-30", d, L.addDays(L.activeWeekStart(), 7 + 3), "2020-01-02", L.addDays(L.nowInSaoPaulo().date, 90)]) {
     const r = await call(slots, { query: { date } });
     assert.equal(r.statusCode, 400, `deveria rejeitar "${date}"`);
   }
@@ -94,11 +98,11 @@ test("book: reserva com sucesso, calcula total no servidor e grava detalhes", as
   const r = await call(book, { method: "POST", body: valid(date, { extras: ["Pretinho", "Vidros"] }) });
   assert.equal(r.statusCode, 200);
   assert.equal(r.body.total, 30 + 5 + 15);
-  const saved = await fakeKv.get(`detail:${date}:09:00`);
+  const saved = await fakeKv.get(`detail:${date}:10:00`);
   assert.equal(saved.phone, "22998641962");
   assert.equal(saved.name, "João Silva");
   assert.ok(fakeKv._ttls.get(`booked:${date}`) >= 86400);
-  assert.deepEqual(await fakeKv.smembers(`booked:${date}`), ["09:00"]);
+  assert.deepEqual(await fakeKv.smembers(`booked:${date}`), ["10:00"]);
 });
 
 test("book: segundo cliente no mesmo horário recebe 409", async () => {
@@ -121,6 +125,8 @@ test("book: validações de entrada", async () => {
   const date = futureOpenDate();
   const bad = [
     valid(date, { time: "18:30" }),
+    valid(date, { time: "18:00" }),
+    valid(date, { time: "08:30" }),
     valid(date, { time: "07:30" }),
     valid(date, { time: "9:00" }),
     valid(date, { name: "A" }),
@@ -158,23 +164,28 @@ test("book: limite por IP devolve 429", async () => {
   const date = futureOpenDate();
   const statuses = [];
   for (let i = 0; i < 8; i++) {
-    const time = L.SLOTS[i];
-    const r = await call(book, { method: "POST", body: valid(date, { time, phone: `229980000${String(i).padStart(2, "0")}` }) });
+    const r = await call(book, { method: "POST", body: valid(date, { phone: `229980000${String(i).padStart(2, "0")}` }) });
     statuses.push(r.statusCode);
   }
-  assert.equal(statuses.filter((s) => s === 200).length, 6);
-  assert.equal(statuses.filter((s) => s === 429).length, 2);
+  assert.deepEqual(statuses, [200, 409, 409, 409, 409, 409, 429, 429]);
 });
 
 test("book: limite por telefone devolve 429", async () => {
   const date = futureOpenDate();
   const statuses = [];
   for (let i = 0; i < 6; i++) {
-    const r = await call(book, { method: "POST", headers: { "x-forwarded-for": `8.8.8.${i}` }, body: valid(date, { time: L.SLOTS[i] }) });
+    const r = await call(book, { method: "POST", headers: { "x-forwarded-for": `8.8.8.${i}` }, body: valid(date) });
     statuses.push(r.statusCode);
   }
-  assert.equal(statuses.filter((s) => s === 200).length, 4);
-  assert.equal(statuses.filter((s) => s === 429).length, 2);
+  assert.deepEqual(statuses, [200, 409, 409, 409, 429, 429]);
+});
+
+test("semana: só qui-dom da semana ativa; domingo à noite abre a próxima", () => {
+  const w = (date, minutes) => L.bookableDates({ date, minutes });
+  assert.deepEqual(w("2026-10-05", 600), ["2026-10-08", "2026-10-09", "2026-10-10", "2026-10-11"]); // segunda
+  assert.deepEqual(w("2026-10-10", 600), ["2026-10-10", "2026-10-11"]); // sábado
+  assert.deepEqual(w("2026-10-11", 600), ["2026-10-11"]); // domingo cedo
+  assert.deepEqual(w("2026-10-11", 17 * 60), ["2026-10-15", "2026-10-16", "2026-10-17", "2026-10-18"]); // domingo depois do último horário
 });
 
 test("book: se gravar os detalhes falhar, o horário é liberado (rollback)", async () => {
@@ -206,14 +217,14 @@ test("admin: exige token correto, lista, formata texto e cancela", async () => {
   assert.equal(list.body.bookings[0].total, 45);
 
   const text = await call(admin, { query: { date, format: "text" }, headers: auth });
-  assert.match(text.body, /09:00 \| João Silva \| 22998641962 \| Moto \+ Blend \| R\$ 45/);
+  assert.match(text.body, /10:00 \| João Silva \| 22998641962 \| Moto \+ Blend \| R\$ 45/);
 
   const upcoming = await call(admin, { query: { days: "31" }, headers: auth });
   assert.equal(upcoming.statusCode, 200);
   assert.ok(upcoming.body.count >= 1);
 
   assert.equal((await call(admin, { method: "DELETE", query: { date, time: "99:99" }, headers: auth })).statusCode, 400);
-  const del = await call(admin, { method: "DELETE", query: { date, time: "09:00" }, headers: auth });
+  const del = await call(admin, { method: "DELETE", query: { date, time: "10:00" }, headers: auth });
   assert.equal(del.body.removed, true);
   assert.equal((await call(admin, { query: { date }, headers: auth })).body.count, 0);
   assert.deepEqual((await call(slots, { query: { date } })).body.bookedSlots, []);
