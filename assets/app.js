@@ -24,18 +24,20 @@
 
   async function renderDatePills() {
     datePillsEl.innerHTML = `<p class="slot-hint">Carregando dias…</p>`;
-    let dates;
+    let dates, available;
     try {
       const res = await fetch("/api/slots");
       const data = await res.json();
       if (!res.ok || !Array.isArray(data.dates)) throw new Error("Resposta inválida.");
       dates = data.dates;
+      available = Array.isArray(data.available) ? data.available : dates;
     } catch (err) {
       datePillsEl.innerHTML = `<p class="slot-hint">Não consegui carregar os dias agora. Atualize a página.</p>`;
       return;
     }
     datePillsEl.innerHTML = "";
-    dates.forEach((iso, i) => {
+    let first = null;
+    dates.forEach((iso) => {
       const [y, m, d] = iso.split("-").map(Number);
       const btn = document.createElement("button");
       btn.type = "button";
@@ -43,10 +45,15 @@
       btn.setAttribute("aria-pressed", "false");
       btn.dataset.date = iso;
       btn.innerHTML = `${DAY_SHORT[new Date(y, m - 1, d).getDay()]}<br>${pad(d)}/${pad(m)}`;
-      btn.addEventListener("click", () => selectDate(iso));
+      if (available.includes(iso)) {
+        btn.addEventListener("click", () => selectDate(iso));
+        if (!first) first = iso;
+      } else {
+        btn.disabled = true;
+      }
       datePillsEl.appendChild(btn);
-      if (i === 0) selectDate(iso);
     });
+    if (first) selectDate(first);
   }
 
   async function selectDate(iso) {
@@ -211,4 +218,13 @@
   wirePillGroup(extrasPillsEl, true);
   renderDatePills();
   updateSummary();
+
+  // movimento: itens entram suavemente ao rolar a página
+  const reveal = document.querySelectorAll(".price-row, .extras-list li, .gallery figure, .time-chips span");
+  if ("IntersectionObserver" in window && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => {
+      if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+    }), { threshold: 0.15 });
+    reveal.forEach((el, i) => { el.classList.add("reveal"); el.style.setProperty("--d", (i % 5) * 90 + "ms"); io.observe(el); });
+  }
 })();

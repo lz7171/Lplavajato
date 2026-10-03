@@ -1,5 +1,5 @@
 const { kv } = require("@vercel/kv");
-const { SLOTS, bookableDates, isBookableDate, nowInSaoPaulo, pastSlotsFor } = require("./_lib");
+const { SLOTS, bookableDates, weekDates, isBookableDate, nowInSaoPaulo, pastSlotsFor } = require("./_lib");
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
@@ -14,7 +14,7 @@ module.exports = async function handler(req, res) {
   const now = nowInSaoPaulo();
 
   if (!date) {
-    res.status(200).json({ dates: bookableDates(now) });
+    res.status(200).json({ dates: weekDates(now), available: bookableDates(now) });
     return;
   }
 

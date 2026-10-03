@@ -80,7 +80,9 @@ test("slots: data válida retorna horários e reservados", async () => {
 test("slots: sem data devolve os dias da semana ativa", async () => {
   const r = await call(slots, { query: {} });
   assert.equal(r.statusCode, 200);
-  assert.deepEqual(r.body.dates, L.bookableDates());
+  assert.deepEqual(r.body.dates, L.weekDates());
+  assert.equal(r.body.dates.length, 4);
+  assert.deepEqual(r.body.available, L.bookableDates());
 });
 
 test("slots: rejeita data inválida, dia fechado, passada, distante e método errado", async () => {

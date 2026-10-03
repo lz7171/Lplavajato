@@ -93,15 +93,20 @@ function activeWeekStart(now = nowInSaoPaulo()) {
   return monday;
 }
 
-// Dias de funcionamento (qui a dom) da semana ativa que ainda não passaram.
-function bookableDates(now = nowInSaoPaulo()) {
+// Os 4 dias de funcionamento (qui a dom) da semana ativa.
+function weekDates(now = nowInSaoPaulo()) {
   const start = activeWeekStart(now);
   const out = [];
   for (let i = 0; i < 7; i++) {
     const day = addDays(start, i);
-    if (isOpenDay(day) && day >= now.date) out.push(day);
+    if (isOpenDay(day)) out.push(day);
   }
   return out;
+}
+
+// Desses, os que ainda não passaram.
+function bookableDates(now = nowInSaoPaulo()) {
+  return weekDates(now).filter((day) => day >= now.date);
 }
 
 function isBookableDate(str, now = nowInSaoPaulo()) {
@@ -197,7 +202,7 @@ function readBody(req) {
 }
 
 module.exports = {
-  OPEN_DAYS, OPEN_TIME, CLOSE_TIME, SLOT_MINUTES, bookableDates, activeWeekStart, VEHICLES, EXTRAS, SLOTS,
+  OPEN_DAYS, OPEN_TIME, CLOSE_TIME, SLOT_MINUTES, bookableDates, weekDates, activeWeekStart, VEHICLES, EXTRAS, SLOTS,
   isValidSlot, nowInSaoPaulo, parseISODate, toISO, addDays, isOpenDay, isBookableDate,
   isPastSlot, pastSlotsFor, cleanName, cleanPhone, cleanVehicle, cleanExtras, computeTotal,
   clientIp, withinLimit, ttlForDate, readBody, timeToMinutes,

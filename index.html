@@ -152,6 +152,27 @@ html { scroll-padding-top: 76px; }
 .time-chips span { border: 1px solid var(--red); padding: 8px 14px; font-weight: 800; }
 .step-body .pills, .slot-grid { gap: 8px; }
 @media (max-width: 720px) { .site-nav { display: none; } .whats-pill { margin-left: auto; } .gallery img { height: 280px; } }
+
+/* v3: limpo, logo nítida e movimento */
+.brand-mark { height: 42px; width: auto; }
+.footer-inner .brand-mark { height: 56px; }
+.hero-art { clip-path: none; max-height: none; overflow: visible; display: flex; align-items: center; justify-content: center; padding: 8px; }
+.hero-art img.hero-logo { width: 100%; max-width: 540px; height: auto; filter: drop-shadow(0 12px 48px rgba(226,35,26,.28)); animation: float 6s ease-in-out infinite; }
+.pill:disabled { opacity: .3; cursor: not-allowed; border-style: dashed; }
+.pill:disabled:hover { border-color: var(--line); }
+.price-row, .extras-list li { background: var(--bg-raised); border: 1px solid var(--line); padding: 16px 18px; transition: transform .25s ease, border-color .25s ease; }
+.price-row:hover, .extras-list li:hover { transform: translateY(-4px); border-color: var(--red); }
+.extras-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; list-style: none; padding: 0; }
+.extras-list li { display: flex; justify-content: space-between; gap: 10px; }
+.head-cta { display: none; padding: 9px 16px; }
+.btn-primary { animation: pulse 2.8s ease-in-out infinite; }
+.reveal { opacity: 0; transform: translateY(26px); transition: opacity .6s ease var(--d, 0ms), transform .6s ease var(--d, 0ms); }
+.reveal.in { opacity: 1; transform: none; }
+.reveal.in:hover { transform: translateY(-4px); }
+@keyframes float { 50% { transform: translateY(-8px); } }
+@keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(226,35,26,.18); } }
+@media (max-width: 720px) { .hero-art { order: -1; } .hero-art img.hero-logo { max-width: 340px; } .head-cta { display: inline-block; margin-left: auto; } .whats-pill { display: none; } }
+@media (prefers-reduced-motion: reduce) { .hero-art img.hero-logo, .btn-primary { animation: none; } .reveal { opacity: 1; transform: none; transition: none; } }
 </style>
 </head>
 <body>
@@ -159,10 +180,10 @@ html { scroll-padding-top: 76px; }
 <header class="site-header">
   <div class="wrap header-inner">
     <a href="#top" class="brand">
-      <img src="assets/logo.webp" alt="LZ Lava-Jato" class="brand-mark" width="96" height="96">
-      <span class="brand-text">LZ <strong>Lava-Jato</strong></span>
+      <img src="assets/logo.webp" alt="LZ Lava-Jato" class="brand-mark" width="360" height="217">
     </a>
     <nav class="site-nav" aria-label="Seções"><a href="#servicos">Serviços</a><a href="#trabalhos">Trabalhos</a><a href="#horario">Horários</a><a href="#agendar">Agendar</a></nav>
+    <a class="btn btn-primary head-cta" href="#agendar">Agendar</a>
     <a class="whats-pill" href="https://wa.me/5522998641962" target="_blank" rel="noopener">(22) 99864-1962</a>
   </div>
 </header>
@@ -179,7 +200,7 @@ html { scroll-padding-top: 76px; }
         <a href="#agendar" class="btn btn-primary">Agendar horário</a>
       </div>
       <div class="hero-art">
-        <img src="assets/hero.webp" alt="Carro e moto lavados e detalhados pela LZ Lava-Jato" width="720" height="1279" fetchpriority="high" decoding="async">
+        <img src="assets/logo-hero.webp" alt="LZ Lava-Jato — Carros, Motos e Estética" class="hero-logo" width="900" height="543" fetchpriority="high" decoding="async">
       </div>
     </div>
   </section>
@@ -227,7 +248,7 @@ html { scroll-padding-top: 76px; }
   <section class="section booking" id="agendar">
     <div class="wrap">
       <h2>Agendar horário</h2>
-      <p class="hero-sub">Cada horário é de uma vaga só — assim que alguém reserva, ele some pros próximos clientes. A agenda abre uma semana por vez (quinta a domingo); na semana seguinte, tudo recomeça.</p>
+      <p class="hero-sub">Escolha o dia e o horário e confirme pelo WhatsApp. A agenda abre uma semana por vez, de quinta a domingo.</p>
 
       <form id="booking-form" novalidate>
         <div class="step">
@@ -296,7 +317,7 @@ html { scroll-padding-top: 76px; }
 
 <footer class="site-footer">
   <div class="wrap footer-inner">
-    <img src="assets/logo.webp" alt="LZ Lava-Jato" class="brand-mark" width="96" height="96">
+    <img src="assets/logo.webp" alt="LZ Lava-Jato" class="brand-mark" width="360" height="217">
     <div>
       <p>Quinta a domingo · 8h, 10h, 12h, 14h e 16h</p>
       <a href="https://wa.me/5522998641962" target="_blank" rel="noopener">(22) 99864-1962</a>
