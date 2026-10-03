@@ -173,6 +173,31 @@ html { scroll-padding-top: 76px; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 8px rgba(226,35,26,.18); } }
 @media (max-width: 720px) { .hero-art { order: -1; } .hero-art img.hero-logo { max-width: 340px; } .head-cta { display: inline-block; margin-left: auto; } .whats-pill { display: none; } }
 @media (prefers-reduced-motion: reduce) { .hero-art img.hero-logo, .btn-primary { animation: none; } .reveal { opacity: 1; transform: none; transition: none; } }
+
+/* v4: hero com foto, serviços em carrossel, menos movimento */
+.hero { background: linear-gradient(90deg, rgba(12,12,13,.97) 30%, rgba(12,12,13,.6)), url(assets/carro.webp) center/cover; }
+.hero-stripe { display: none; }
+.hero-art img.hero-logo, .btn-primary { animation: none; }
+.services { background: var(--red); border-bottom: 0; overflow: hidden; }
+.services h2 { color: #fff; }
+.marquee { overflow: hidden; -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+.marquee-track { display: flex; width: max-content; margin: 0; padding: 6px 0; list-style: none; animation: marquee 34s linear infinite; }
+.marquee:hover .marquee-track, .marquee:active .marquee-track { animation-play-state: paused; }
+.svc-card { flex: none; width: 230px; margin-right: 14px; padding: 20px 22px; background: var(--bg); border: 1px solid rgba(255,255,255,.12); display: flex; flex-direction: column; gap: 4px; }
+.svc-kind { color: var(--muted); font-size: .85rem; font-weight: 700; }
+.svc-name { font-family: "Anton", "Arial Narrow", sans-serif; font-weight: 400; font-size: 1.5rem; }
+.svc-price { font-family: "Anton", "Arial Narrow", sans-serif; font-size: 1.9rem; color: var(--red-bright); }
+.svc-card.is-main { width: 260px; background: #fff; border-color: #fff; }
+.svc-card.is-main .svc-name { color: var(--bg); }
+.svc-card.is-main .svc-kind { color: #55565a; }
+@keyframes marquee { to { transform: translateX(-50%); } }
+.booking .wrap { max-width: 1080px; }
+.booking form { max-width: 720px; }
+.hours-inner { flex-direction: column; align-items: flex-start; }
+.hours-days { order: 2; }
+.hours-days span { background: var(--red); color: #fff; border-color: var(--red); }
+@media (prefers-reduced-motion: reduce) { .marquee { overflow-x: auto; } .marquee-track { animation: none; } }
+@media (max-width: 720px) { .svc-card { width: 200px; } .svc-card.is-main { width: 220px; } }
 </style>
 </head>
 <body>
@@ -194,8 +219,7 @@ html { scroll-padding-top: 76px; }
     <div class="hero-stripe" aria-hidden="true"></div>
     <div class="wrap hero-inner">
       <div class="hero-copy">
-        <p class="eyebrow">Carros · Motos · Estética</p>
-        <h1>Seu veículo.<br><span>Outro nível.</span></h1>
+                <h1>Seu veículo.<br><span>Outro nível.</span></h1>
         <p class="hero-sub">Lavagem completa com produtos Vonixx. Escolha o dia, o horário e os adicionais — a reserva já sai confirmada certinha pro nosso WhatsApp.</p>
         <a href="#agendar" class="btn btn-primary">Agendar horário</a>
       </div>
@@ -205,21 +229,10 @@ html { scroll-padding-top: 76px; }
     </div>
   </section>
 
-  <section class="section" id="servicos">
-    <div class="wrap">
-      <h2>O que fazemos</h2>
-      <div class="price-grid">
-        <div class="price-row"><span class="price-name">Motos</span><span class="price-line" aria-hidden="true"></span><span class="price-value">R$ 30</span></div>
-        <div class="price-row"><span class="price-name">Carros</span><span class="price-line" aria-hidden="true"></span><span class="price-value">R$ 60</span></div>
-      </div>
-      <h3 class="extras-title">Adicionais</h3>
-      <ul class="extras-list">
-        <li><span>Pretinho</span><b>+ R$ 5</b></li>
-        <li><span>RestauraX</span><b>+ R$ 10</b></li>
-        <li><span>Blend</span><b>+ R$ 15</b></li>
-        <li><span>Descontaminação</span><b>+ R$ 20</b></li>
-        <li><span>Vidros</span><b>+ R$ 15</b></li>
-      </ul>
+  <section class="section services" id="servicos">
+    <div class="wrap"><h2>Serviços e preços</h2></div>
+    <div class="marquee" aria-label="Serviços e adicionais">
+      <ul class="marquee-track"><li class="svc-card is-main"><span class="svc-kind">Lavagem completa</span><strong class="svc-name">Moto</strong><span class="svc-price">R$ 30</span></li><li class="svc-card is-main"><span class="svc-kind">Lavagem completa</span><strong class="svc-name">Carro</strong><span class="svc-price">R$ 60</span></li><li class="svc-card"><span class="svc-kind">Adicional</span><strong class="svc-name">Pretinho</strong><span class="svc-price">+ R$ 5</span></li><li class="svc-card"><span class="svc-kind">Adicional</span><strong class="svc-name">RestauraX</strong><span class="svc-price">+ R$ 10</span></li><li class="svc-card"><span class="svc-kind">Adicional</span><strong class="svc-name">Blend</strong><span class="svc-price">+ R$ 15</span></li><li class="svc-card"><span class="svc-kind">Adicional</span><strong class="svc-name">Descontaminação</strong><span class="svc-price">+ R$ 20</span></li><li class="svc-card"><span class="svc-kind">Adicional</span><strong class="svc-name">Vidros</strong><span class="svc-price">+ R$ 15</span></li><li class="svc-card is-main" aria-hidden="true"><span class="svc-kind">Lavagem completa</span><strong class="svc-name">Moto</strong><span class="svc-price">R$ 30</span></li><li class="svc-card is-main" aria-hidden="true"><span class="svc-kind">Lavagem completa</span><strong class="svc-name">Carro</strong><span class="svc-price">R$ 60</span></li><li class="svc-card" aria-hidden="true"><span class="svc-kind">Adicional</span><strong class="svc-name">Pretinho</strong><span class="svc-price">+ R$ 5</span></li><li class="svc-card" aria-hidden="true"><span class="svc-kind">Adicional</span><strong class="svc-name">RestauraX</strong><span class="svc-price">+ R$ 10</span></li><li class="svc-card" aria-hidden="true"><span class="svc-kind">Adicional</span><strong class="svc-name">Blend</strong><span class="svc-price">+ R$ 15</span></li><li class="svc-card" aria-hidden="true"><span class="svc-kind">Adicional</span><strong class="svc-name">Descontaminação</strong><span class="svc-price">+ R$ 20</span></li><li class="svc-card" aria-hidden="true"><span class="svc-kind">Adicional</span><strong class="svc-name">Vidros</strong><span class="svc-price">+ R$ 15</span></li></ul>
     </div>
   </section>
 
