@@ -4,7 +4,7 @@ HTML/CSS/JS puro + funções em `/api` (Vercel) + banco MySQL/TiDB (`DATABASE_UR
 
 ## Configurar no Vercel (Settings → Environment Variables)
 1. `DATABASE_URL` — a mesma que você já testou em `/api/db-ping` (deve responder `ok: true`).
-2. `ADMIN_PASSWORD` — a senha do painel (mín. 8 caracteres). **Não fica no código**, só aqui.
+2. `ADMIN_PASSWORD` (opcional) — nova senha do painel (mín. 8 caracteres). Sem ela vale a senha padrão (guardada só como hash em `api/admin.js`). Mantenha o repositório **privado**.
 3. Faça um novo deploy. O `@vercel/kv` não é mais usado.
 
 ## Painel secreto

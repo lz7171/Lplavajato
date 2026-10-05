@@ -4,14 +4,15 @@ const { db } = require("./_db");
 const C = require("./_core");
 const L = require("./_lib");
 
+// Hash (scrypt) da senha padrão do painel. Para trocar: defina ADMIN_PASSWORD no Vercel.
+const DEFAULT_HASH = "8ede7243288eb568af850f0bc59208fe:5a1c13fa14e7fece9eb8070aef4a6c1681f5ab67cf40cc37d0c54364a143cd44";
 const sha = (v) => crypto.createHash("sha256").update(String(v)).digest();
 const same = (a, b) => crypto.timingSafeEqual(sha(a), sha(b));
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
   res.setHeader("X-Robots-Tag", "noindex, nofollow");
-  const pass = process.env.ADMIN_PASSWORD;
-  if (!pass || pass.length < 8) return res.status(503).json({ error: "Painel desativado: defina ADMIN_PASSWORD (mín. 8 caracteres) no Vercel e faça novo deploy." });
+  const pass = process.env.ADMIN_PASSWORD; // se existir no Vercel, tem prioridade sobre a senha padrão
 
   try {
     await C.init();
@@ -19,7 +20,9 @@ module.exports = async function handler(req, res) {
 
     if (b.action === "login") {
       if (!(await C.limite(`ad:${L.clientIp(req)}`, 6, 15 * 60e3))) return res.status(429).json({ error: "Muitas tentativas. Aguarde 15 minutos." });
-      if (!same(b.password || "", pass)) return res.status(401).json({ error: "Senha incorreta." });
+      const given = String(b.password || "").slice(0, 100);
+      const okPass = pass && pass.length >= 8 ? same(given, pass) : C.checkPin(given, DEFAULT_HASH);
+      if (!okPass) return res.status(401).json({ error: "Senha incorreta." });
       C.setCookie(res, "lz_a", C.sign({ t: "a", exp: Date.now() + 8 * 3600e3 }), 8 * 3600);
       return res.status(200).json({ ok: true });
     }
