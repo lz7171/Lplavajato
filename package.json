@@ -10,6 +10,7 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@vercel/kv": "^2.0.0"
+    "@vercel/kv": "^2.0.0",
+    "mysql2": "^3.24.5"
   }
 }
