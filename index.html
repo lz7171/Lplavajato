@@ -215,6 +215,15 @@ html { scroll-padding-top: 76px; }
 #acct p { margin: 0 0 12px; }
 .board-day { margin: 26px 0 12px; color: var(--text); }
 .board-day:first-child { margin-top: 0; }
+.checklist { list-style: none; margin: 28px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.checklist li { border: 1px solid var(--line); padding: 7px 12px; font-size: .88rem; font-weight: 700; color: var(--muted); }
+.checklist li.ok { border-color: #46d37a; color: #46d37a; }
+.checklist li.todo { border-color: var(--red); color: var(--text); }
+.gallery img { cursor: zoom-in; }
+.lb { position: fixed; inset: 0; z-index: 99; background: rgba(0,0,0,.92); display: flex; align-items: center; justify-content: center; padding: 16px; cursor: zoom-out; }
+.lb img { max-width: 100%; max-height: 100%; object-fit: contain; }
+@media (max-width: 720px) { .pill, .slot-btn, .btn-sm, .head-cta { min-height: 44px; } .link-btn { padding: 12px 8px; } .field input { min-height: 46px; } }
+@media (max-width: 720px) { .acct-fields { grid-template-columns: 1fr; } }
 .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
 </style>
 </head>
@@ -322,6 +331,8 @@ html { scroll-padding-top: 76px; }
             </div>
           </div>
         </div>
+
+        <ul class="checklist" id="checklist" aria-live="polite"></ul>
 
         <div class="summary" id="summary" aria-live="polite">
           <div class="summary-line"><span>Dia / horário</span><b id="sum-when">—</b></div>

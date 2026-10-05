@@ -37,7 +37,7 @@ module.exports = async function handler(req, res) {
       const [bookings] = await q("SELECT a.id,a.data,a.hora,a.veiculo,a.extras,a.total,a.status,a.expira_em,a.criado_em,c.id cliente_id,c.nome,c.telefone FROM agendamentos a JOIN clientes c ON c.id=a.cliente_id WHERE a.data>=? ORDER BY a.data DESC,a.hora DESC LIMIT 1500", [L.addDays(now.date, -60)]);
       const [clientes] = await q("SELECT c.id,c.nome,c.telefone,c.strikes,c.bloqueado,c.criado_em,COUNT(a.id) total,COALESCE(SUM(a.status='concluido'),0) feitos,COALESCE(SUM(a.status='faltou'),0) faltas,COALESCE(SUM(CASE WHEN a.status='concluido' THEN a.total END),0) gasto FROM clientes c LEFT JOIN agendamentos a ON a.cliente_id=c.id GROUP BY c.id ORDER BY c.criado_em DESC LIMIT 1500");
       const [bloqueios] = await q("SELECT id,data,hora FROM agendamentos WHERE status='bloqueado' AND data>=? ORDER BY data,hora", [now.date]);
-      return res.status(200).json({ slots: L.SLOTS, bloqueios, hoje: now.date, agora: Date.now(), holdMin: C.HOLD_MIN, bookings: bookings.map((x) => ({ ...C.shape(x), cliente_id: x.cliente_id, nome: x.nome, telefone: x.telefone, criado_em: Number(x.criado_em) })), clientes: clientes.map((c) => ({ ...c, total: +c.total, feitos: +c.feitos, faltas: +c.faltas, gasto: +c.gasto, criado_em: Number(c.criado_em), bloqueado: !!c.bloqueado })) });
+      return res.status(200).json({ slots: L.SLOTS, servicos: { veiculos: Object.keys(L.VEHICLES), extras: Object.keys(L.EXTRAS) }, bloqueios, hoje: now.date, agora: Date.now(), holdMin: C.HOLD_MIN, bookings: bookings.map((x) => ({ ...C.shape(x), cliente_id: x.cliente_id, nome: x.nome, telefone: x.telefone, criado_em: Number(x.criado_em) })), clientes: clientes.map((c) => ({ ...c, total: +c.total, feitos: +c.feitos, faltas: +c.faltas, gasto: +c.gasto, criado_em: Number(c.criado_em), bloqueado: !!c.bloqueado })) });
     }
     if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido." });
     const id = parseInt(b.id, 10);
@@ -52,6 +52,17 @@ module.exports = async function handler(req, res) {
       // reativar uma falta/reserva expirada devolve o strike ao cliente
       if (["faltou", "expirado"].includes(a.status) && ["confirmado", "concluido"].includes(b.status)) await q("UPDATE clientes SET strikes=GREATEST(strikes-1,0) WHERE id=?", [a.cliente_id]);
       if (b.status === "faltou" && a.status !== "faltou") await q("UPDATE clientes SET strikes=strikes+1, bloqueado=IF(strikes>=?,1,bloqueado) WHERE id=?", [C.MAX_STRIKES, a.cliente_id]);
+      return res.status(200).json({ ok: true });
+    }
+    if (b.action === "manual") {
+      const nome = L.cleanName(b.nome), tel = L.cleanPhone(b.telefone), veic = L.cleanVehicle(b.veiculo), ex = L.cleanExtras(b.extras);
+      if (!nome || !tel) return res.status(400).json({ error: "Informe nome e WhatsApp válidos (com DDD)." });
+      if (!veic || !ex || !L.parseISODate(b.data) || !L.isValidSlot(b.hora)) return res.status(400).json({ error: "Data, horário ou serviço inválido." });
+      const [[c]] = await q("SELECT id FROM clientes WHERE telefone=?", [tel]);
+      let cid = c && c.id;
+      if (!cid) { const [r] = await q("INSERT INTO clientes(nome,telefone,senha,criado_em) VALUES(?,?,?,?)", [nome, tel, C.hashPin(String(crypto.randomInt(10000000, 99999999))), Date.now()]); cid = r.insertId; }
+      try { await q("INSERT INTO agendamentos(cliente_id,data,hora,veiculo,extras,total,status,slot_key,expira_em,criado_em) VALUES(?,?,?,?,?,?,'confirmado',?,0,?)", [cid, b.data, b.hora, veic, ex.join(","), L.computeTotal(veic, ex), `${b.data} ${b.hora}`, Date.now()]); }
+      catch (e) { if (e.code === "ER_DUP_ENTRY") return res.status(409).json({ error: "Esse horário já está ocupado ou bloqueado." }); throw e; }
       return res.status(200).json({ ok: true });
     }
     if (b.action === "bloquear") {

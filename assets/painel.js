@@ -6,7 +6,7 @@
   const dia = (d) => d.split("-").reverse().join("/");
   const hhmm = (ms) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   const wa = (t) => `https://wa.me/55${t}`;
-  let D = null, tab = "resumo", fSt = "", fQ = "";
+  let D = null, tab = "hoje", fSt = "", fQ = "";
 
   async function api(body, url, method) {
     const r = await fetch(url || "/api/admin", { method: method || (body ? "POST" : "GET"), credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: body && JSON.stringify(body) });
@@ -16,7 +16,7 @@
   function login(msg) {
     app.innerHTML = `<div class="login"><h1>Painel</h1><input type="password" id="pw" placeholder="Senha" autocomplete="current-password"><button class="p" id="go">Entrar</button><p class="err">${esc(msg || "")}</p></div>`;
     const go = async () => { const r = await api({ action: "login", password: $("#pw").value }); r.ok ? load() : login(r.d.error); };
-    $("#go").onclick = go; $("#pw").onkeydown = (e) => e.key === "Enter" && go(); $("#pw").focus();
+    $("#go").onclick = go; $("#pw").onkeydown = (e) => { if (e.key === "Enter") go(); }; $("#pw").focus();
   }
   async function load() {
     const r = await api();
@@ -63,6 +63,17 @@
     } else if (tab === "agenda") {
       const l = B.filter((b) => (!fSt || b.status === fSt) && (!fQ || (b.nome + b.telefone).toLowerCase().includes(fQ.toLowerCase())));
       body = `<div class="tools"><select id="fs"><option value="">Todos os status</option>${["pendente", "confirmado", "concluido", "faltou", "cancelado", "expirado"].map((s) => `<option ${fSt === s ? "selected" : ""}>${s}</option>`).join("")}</select><input id="fq" placeholder="Buscar nome ou número" value="${esc(fQ)}"><button id="csv">Exportar CSV</button></div><div class="box"><table><tr><th>Quando</th><th>Cliente</th><th>Serviço</th><th>Total</th><th>Status</th><th></th></tr>${l.map(linha).join("") || "<tr><td>Nada encontrado</td></tr>"}</table></div>`;
+    } else if (tab === "hoje") {
+      const doDia = B.filter((b) => b.data === hoje && ["pendente", "confirmado", "concluido"].includes(b.status)), blq = D.bloqueios.filter((x) => x.data === hoje);
+      const linhas = D.slots.map((h) => { const b = doDia.find((x) => x.hora === h), k = blq.find((x) => x.hora === h);
+        return `<tr><td><b>${h}</b></td><td>${b ? `${esc(b.nome)}<br><small>${esc(b.veiculo)}${b.extras.length ? " + " + esc(b.extras.join(", ")) : ""}</small>` : k ? "🔒 Bloqueado" : "<small>Livre</small>"}</td><td>${b ? R(b.total) : ""}</td><td>${b ? `<span class="b ${b.status}">${b.status}</span>` : ""}</td><td>${b ? acoes(b) : k ? "" : `<button class="s" data-novo="${h}">+ Agendar</button>`}</td></tr>`; }).join("");
+      const dias = [...Array(14).keys()].map((i) => { const d = new Date(hoje + "T12:00:00"); d.setDate(d.getDate() - i); return d.toISOString().slice(0, 10); }).reverse();
+      const fat = dias.map((d) => [d, B.filter((b) => b.data === d && b.status === "concluido").reduce((s, b) => s + b.total, 0)]), mx = Math.max(1, ...fat.map((x) => x[1]));
+      const sv = D.servicos;
+      body = `<div class="g"><div class="k"><b>${doDia.length}/${D.slots.length}</b><span>Horários ocupados hoje</span></div><div class="k"><b>${R(soma(doDia.filter((b) => b.status === "concluido")))}</b><span>Faturado hoje</span></div><div class="k"><b>${pend.length}</b><span>Aguardando confirmação</span></div></div>
+        <div class="box"><h2>Agenda de hoje · ${dia(hoje)}</h2><table>${linhas}</table></div>
+        <div class="box"><h2>Novo agendamento manual (telefone / balcão)</h2><div class="tools"><input id="mn" placeholder="Nome" maxlength="60"><input id="mt" placeholder="WhatsApp com DDD" inputmode="tel"><input type="date" id="md" value="${hoje}"><select id="mh">${D.slots.map((x) => `<option>${x}</option>`).join("")}</select><select id="mv">${sv.veiculos.map((x) => `<option>${x}</option>`).join("")}</select></div><div class="tools">${sv.extras.map((x) => `<label><input type="checkbox" class="mx" value="${esc(x)}"> ${esc(x)}</label>`).join("")}</div><button class="p" id="mb">Agendar (já confirmado)</button> <small>Se o cliente ainda não tem conta, ela é criada; use "Nova senha" em Clientes para ele entrar no site.</small></div>
+        <div class="box"><h2>Faturamento — últimos 14 dias (concluídos)</h2>${fat.map(([d, v]) => `<div class="bar"><span>${dia(d).slice(0, 5)}</span><i style="width:${(v / mx) * 60}%"></i>${v ? R(v) : ""}</div>`).join("")}</div>`;
     } else if (tab === "quadro") {
       const F = D.fotos || [];
       body = `<div class="box"><h2>Novo serviço no quadro</h2><div class="tools"><input type="file" id="ff" accept="image/*" multiple><input type="date" id="fd" value="${hoje}"><input id="fl" maxlength="80" placeholder="Legenda (ex.: Moto + Pretinho)"><button class="p" id="up">Enviar fotos</button></div><small>As fotos são reduzidas automaticamente e aparecem no site, em "Quadro de serviços", agrupadas por dia.</small></div><div class="box"><h2>No ar (${F.length})</h2><div class="thumbs">${F.map((f) => `<figure><img src="/api/galeria?img=${f.id}" alt=""><figcaption>${dia(f.data)}${f.legenda ? " · " + esc(f.legenda) : ""}</figcaption><button class="s" data-del="${f.id}">Apagar</button></figure>`).join("") || "<small>Nenhuma foto ainda</small>"}</div></div>`;
@@ -72,7 +83,7 @@
       const l = D.clientes.filter((c) => !fQ || (c.nome + c.telefone).toLowerCase().includes(fQ.toLowerCase()));
       body = `<div class="tools"><input id="fq" placeholder="Buscar nome ou número" value="${esc(fQ)}"></div><div class="box"><table><tr><th>Cliente</th><th>Agend.</th><th>Feitos</th><th>Faltas</th><th>Strikes</th><th>Gasto</th><th></th></tr>${l.map((c) => `<tr><td>${esc(c.nome)} ${c.bloqueado ? '<span class="bad">· bloqueado</span>' : ""}<br><a href="${wa(c.telefone)}" target="_blank" rel="noopener">${fone(c.telefone)}</a></td><td>${c.total}</td><td>${c.feitos}</td><td>${c.faltas}</td><td>${c.strikes}</td><td>${R(c.gasto)}</td><td><button class="s" data-a="cl" data-id="${c.id}" data-op="${c.bloqueado ? "unblock" : "block"}">${c.bloqueado ? "Desbloquear" : "Bloquear"}</button><button class="s" data-a="cl" data-id="${c.id}" data-op="pin">Nova senha</button></td></tr>`).join("")}</table></div>`;
     }
-    app.innerHTML = `<header><h1>🔧 Painel LZ Lava-Jato</h1><span class="sp"></span>${T("resumo", "Resumo")}${T("agenda", "Agendamentos")}${T("clientes", "Clientes")}${T("quadro", "Quadro")}${T("folgas", "Folgas")}<button id="rf">↻</button><button id="out">Sair</button></header>${body}`;
+    app.innerHTML = `<header><h1>🔧 Painel LZ Lava-Jato</h1><span class="sp"></span>${T("hoje", "Hoje")}${T("resumo", "Resumo")}${T("agenda", "Agendamentos")}${T("clientes", "Clientes")}${T("quadro", "Quadro")}${T("folgas", "Folgas")}<button id="rf">↻</button><button id="out">Sair</button></header>${body}`;
     app.querySelectorAll("[data-tab]").forEach((b) => (b.onclick = () => { tab = b.dataset.tab; fQ = ""; fSt = ""; draw(); }));
     $("#rf").onclick = load; $("#out").onclick = async () => { await api({ action: "logout" }); login(); };
     const fs = $("#fs"), fq = $("#fq");
@@ -115,6 +126,12 @@
       load();
     };
     app.querySelectorAll("[data-del]").forEach((b) => (b.onclick = async () => { if (!confirm("Apagar esta foto do quadro?")) return; await api(null, `/api/galeria?id=${b.dataset.del}`, "DELETE"); load(); }));
+    app.querySelectorAll("[data-novo]").forEach((b) => (b.onclick = () => { $("#mh").value = b.dataset.novo; $("#md").value = D.hoje; $("#mn").focus(); }));
+    const mb = $("#mb");
+    if (mb) mb.onclick = async () => {
+      const r = await api({ action: "manual", nome: $("#mn").value, telefone: $("#mt").value, data: $("#md").value, hora: $("#mh").value, veiculo: $("#mv").value, extras: [...document.querySelectorAll(".mx:checked")].map((x) => x.value) });
+      if (!r.ok) return alert(r.d.error || "Erro"); load();
+    };
     const bk = $("#bk");
     if (bk) bk.onclick = async () => { const r = await api({ action: "bloquear", data: $("#bd").value, hora: $("#bh").value }); if (!r.ok) alert(r.d.error || "Erro"); load(); };
     app.querySelectorAll("[data-lib]").forEach((b) => (b.onclick = async () => { await api({ action: "liberar", id: b.dataset.lib }); load(); }));

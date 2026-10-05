@@ -148,6 +148,12 @@
     sumVehicle.textContent = state.vehicle ? `${state.vehicle} — R$ ${state.vehiclePrice}` : "—";
     sumExtras.textContent = state.extras.size ? [...state.extras.entries()].map(([n, p]) => `${n} (+${p})`).join(", ") : "Nenhum";
     sumTotal.textContent = `R$ ${currentTotal()}`;
+    const ck = $("checklist");
+    if (ck) {
+      const it = [[!!state.me, "Entrar na conta"], [!!(state.date && state.time), "Dia e horário"], [!!state.vehicle, "Veículo"]];
+      let next = true;
+      ck.innerHTML = it.map(([ok, t]) => { const c = ok ? "ok" : next ? "todo" : ""; if (!ok) next = false; return `<li class="${c}">${ok ? "✔" : "○"} ${t}</li>`; }).join("");
+    }
   }
 
   function formatPhone(value) {
@@ -203,6 +209,7 @@
     const hc = $("head-cta"); if (hc) hc.textContent = state.me ? "Agendar" : "Entrar";
     submitBtn.textContent = state.me ? "Reservar horário" : "Entrar para reservar";
     acctEl.classList.toggle("gate", !state.me);
+    updateSummary();
     if (state.me) {
       acctEl.innerHTML = `<p class="acct-hi">✔ Conectado como <b>${esc(state.me.nome)}</b> · ${esc(formatPhone(state.me.telefone))} <button type="button" class="link-btn" id="logout">Sair</button></p>${state.me.bloqueado ? '<p class="form-error is-visible">Sua conta está bloqueada para agendar online. Fale com a gente pelo WhatsApp.</p>' : ""}`;
       $("logout").onclick = async () => { await post("/api/auth", { action: "logout" }); resultEl.innerHTML = ""; await refreshMe(); };
@@ -266,6 +273,12 @@
     el.innerHTML = Object.keys(g).sort().reverse().map((day) => `<h3 class="board-day">${rot(day)}</h3><div class="gallery">${g[day].map((f) => `<figure><img src="/api/galeria?img=${f.id}" alt="${esc(f.legenda || "Serviço realizado")}" loading="lazy" decoding="async">${f.legenda ? `<figcaption>${esc(f.legenda)}</figcaption>` : ""}</figure>`).join("")}</div>`).join("");
   }
   loadBoard();
+  document.addEventListener("click", (e) => {
+    const im = e.target.closest && e.target.closest(".gallery img"); if (!im) return;
+    const lb = document.createElement("div"); lb.className = "lb"; lb.innerHTML = `<img src="${esc(im.getAttribute("src"))}" alt="${esc(im.alt)}">`;
+    const close = () => { lb.remove(); document.removeEventListener("keydown", key); }, key = (k) => k.key === "Escape" && close();
+    lb.onclick = close; document.addEventListener("keydown", key); document.body.appendChild(lb);
+  });
 
   wirePillGroup(vehiclePillsEl, false);
   wirePillGroup(extrasPillsEl, true);
