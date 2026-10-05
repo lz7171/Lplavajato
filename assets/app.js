@@ -193,8 +193,9 @@
     state.me = d.cliente || null; list = d.agendamentos || [];
     renderAcct(); renderMine();
   }
+  function acctError(msg) { const m = $("a-msg"); if (m) { m.textContent = msg; m.classList.add("is-visible"); } else showError(msg); }
   function goAcct(msg) {
-    if (msg) showError(msg);
+    if (msg) acctError(msg);
     acctEl.scrollIntoView({ behavior: "smooth", block: "center" });
     const f = $("a-phone"); if (f) setTimeout(() => f.focus({ preventScroll: true }), 400);
   }
@@ -211,15 +212,15 @@
     acctEl.innerHTML = `<h3>${reg ? "Criar minha conta" : "Entre para agendar"}</h3><p>${reg ? "Leva 10 segundos: nome, WhatsApp e uma senha de 4 a 8 números." : "Use o WhatsApp e a senha que você cadastrou. Ainda não tem conta? Toque em Criar conta."}</p>
       <div class="pills"><button type="button" class="pill ${reg ? "" : "is-selected"}" data-m="login">Entrar</button><button type="button" class="pill ${reg ? "is-selected" : ""}" data-m="register">Criar conta</button></div>
       <form id="a-form" novalidate><div class="field-grid acct-fields">${reg ? '<div class="field"><label for="a-name">Nome</label><input id="a-name" maxlength="60" autocomplete="name"></div>' : ""}<div class="field"><label for="a-phone">WhatsApp</label><input id="a-phone" type="tel" inputmode="tel" maxlength="15" placeholder="(22) 99999-9999" autocomplete="tel-national"></div><div class="field"><label for="a-pin">Senha (4 a 8 números)</label><input id="a-pin" type="password" inputmode="numeric" maxlength="8" autocomplete="${reg ? "new-password" : "current-password"}"></div></div>
-      <button type="submit" class="btn btn-primary btn-sm" id="a-go">${reg ? "Criar minha conta" : "Entrar"}</button></form>`;
+      <p class="form-error" id="a-msg" role="alert"></p><button type="submit" class="btn btn-primary btn-sm" id="a-go">${reg ? "Criar minha conta" : "Entrar"}</button></form>`;
     acctEl.querySelectorAll("[data-m]").forEach((x) => x.addEventListener("click", () => { mode = x.dataset.m; clearError(); renderAcct(); }));
     const ph = $("a-phone"); ph.addEventListener("input", () => { ph.value = formatPhone(ph.value); });
     $("a-form").addEventListener("submit", async (e) => {
-      e.preventDefault(); clearError();
+      e.preventDefault(); clearError(); $("a-msg").classList.remove("is-visible");
       const go = $("a-go"); go.disabled = true;
       const r = await post("/api/auth", { action: mode, phone: ph.value, pin: $("a-pin").value, name: reg && $("a-name").value });
       go.disabled = false;
-      if (!r.ok) return showError(r.d.error || "Não foi possível entrar agora.");
+      if (!r.ok) return acctError(r.d.error || "Não foi possível entrar agora.");
       await refreshMe();
       formEl.scrollIntoView({ behavior: "smooth", block: "start" });
     });

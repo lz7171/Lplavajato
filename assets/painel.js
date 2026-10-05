@@ -23,7 +23,7 @@
     if (r.status === 401) return login();
     if (!r.ok) { app.innerHTML = `<p class="err">${esc(r.d.error || "Erro")}</p>`; return; }
     D = r.d;
-    try { D.fotos = (await (await fetch("/api/galeria")).json()).fotos || []; } catch (e) { D.fotos = []; }
+    try { D.fotos = (await (await fetch("/api/galeria?t=" + Date.now())).json()).fotos || []; } catch (e) { D.fotos = []; }
     draw();
   }
   const ranking = (title, map) => {
