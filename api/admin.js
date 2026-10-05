@@ -36,7 +36,8 @@ module.exports = async function handler(req, res) {
       const now = L.nowInSaoPaulo();
       const [bookings] = await q("SELECT a.id,a.data,a.hora,a.veiculo,a.extras,a.total,a.status,a.expira_em,a.criado_em,c.id cliente_id,c.nome,c.telefone FROM agendamentos a JOIN clientes c ON c.id=a.cliente_id WHERE a.data>=? ORDER BY a.data DESC,a.hora DESC LIMIT 1500", [L.addDays(now.date, -60)]);
       const [clientes] = await q("SELECT c.id,c.nome,c.telefone,c.strikes,c.bloqueado,c.criado_em,COUNT(a.id) total,COALESCE(SUM(a.status='concluido'),0) feitos,COALESCE(SUM(a.status='faltou'),0) faltas,COALESCE(SUM(CASE WHEN a.status='concluido' THEN a.total END),0) gasto FROM clientes c LEFT JOIN agendamentos a ON a.cliente_id=c.id GROUP BY c.id ORDER BY c.criado_em DESC LIMIT 1500");
-      return res.status(200).json({ hoje: now.date, agora: Date.now(), holdMin: C.HOLD_MIN, bookings: bookings.map((x) => ({ ...C.shape(x), cliente_id: x.cliente_id, nome: x.nome, telefone: x.telefone, criado_em: Number(x.criado_em) })), clientes: clientes.map((c) => ({ ...c, total: +c.total, feitos: +c.feitos, faltas: +c.faltas, gasto: +c.gasto, criado_em: Number(c.criado_em), bloqueado: !!c.bloqueado })) });
+      const [bloqueios] = await q("SELECT id,data,hora FROM agendamentos WHERE status='bloqueado' AND data>=? ORDER BY data,hora", [now.date]);
+      return res.status(200).json({ slots: L.SLOTS, bloqueios, hoje: now.date, agora: Date.now(), holdMin: C.HOLD_MIN, bookings: bookings.map((x) => ({ ...C.shape(x), cliente_id: x.cliente_id, nome: x.nome, telefone: x.telefone, criado_em: Number(x.criado_em) })), clientes: clientes.map((c) => ({ ...c, total: +c.total, feitos: +c.feitos, faltas: +c.faltas, gasto: +c.gasto, criado_em: Number(c.criado_em), bloqueado: !!c.bloqueado })) });
     }
     if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido." });
     const id = parseInt(b.id, 10);
@@ -48,9 +49,22 @@ module.exports = async function handler(req, res) {
       const libera = b.status === "faltou" || b.status === "cancelado";
       try { await q("UPDATE agendamentos SET status=?, slot_key=?, expira_em=0 WHERE id=?", [b.status, libera ? null : `${a.data} ${a.hora}`, id]); }
       catch (e) { if (e.code === "ER_DUP_ENTRY") return res.status(409).json({ error: "Esse horário já foi ocupado por outro agendamento." }); throw e; }
+      // reativar uma falta/reserva expirada devolve o strike ao cliente
+      if (["faltou", "expirado"].includes(a.status) && ["confirmado", "concluido"].includes(b.status)) await q("UPDATE clientes SET strikes=GREATEST(strikes-1,0) WHERE id=?", [a.cliente_id]);
       if (b.status === "faltou" && a.status !== "faltou") await q("UPDATE clientes SET strikes=strikes+1, bloqueado=IF(strikes>=?,1,bloqueado) WHERE id=?", [C.MAX_STRIKES, a.cliente_id]);
       return res.status(200).json({ ok: true });
     }
+    if (b.action === "bloquear") {
+      const horas = b.hora === "todos" ? L.SLOTS : L.isValidSlot(b.hora) ? [b.hora] : null;
+      if (!L.parseISODate(b.data) || !horas) return res.status(400).json({ error: "Data ou horário inválido." });
+      let n = 0;
+      for (const h of horas) {
+        try { await q("INSERT INTO agendamentos(cliente_id,data,hora,veiculo,extras,total,status,slot_key,expira_em,criado_em) VALUES(0,?,?,'-','',0,'bloqueado',?,0,?)", [b.data, h, `${b.data} ${h}`, Date.now()]); n++; }
+        catch (e) { if (e.code !== "ER_DUP_ENTRY") throw e; }
+      }
+      return res.status(200).json({ ok: true, bloqueados: n });
+    }
+    if (b.action === "liberar") { await q("DELETE FROM agendamentos WHERE id=? AND status='bloqueado'", [id]); return res.status(200).json({ ok: true }); }
     if (b.action === "cliente") {
       if (b.op === "block") await q("UPDATE clientes SET bloqueado=1 WHERE id=?", [id]);
       else if (b.op === "unblock") await q("UPDATE clientes SET bloqueado=0, strikes=0 WHERE id=?", [id]);

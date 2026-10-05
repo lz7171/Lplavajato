@@ -13,6 +13,7 @@ function init() {
     const q = (s) => db().query(s);
     await q("CREATE TABLE IF NOT EXISTS clientes (id BIGINT AUTO_INCREMENT PRIMARY KEY, nome VARCHAR(60) NOT NULL, telefone VARCHAR(11) NOT NULL, senha VARCHAR(200) NOT NULL, strikes INT NOT NULL DEFAULT 0, bloqueado TINYINT NOT NULL DEFAULT 0, criado_em BIGINT NOT NULL, UNIQUE KEY uq_tel (telefone)) DEFAULT CHARSET=utf8mb4");
     await q("CREATE TABLE IF NOT EXISTS agendamentos (id BIGINT AUTO_INCREMENT PRIMARY KEY, cliente_id BIGINT NOT NULL, data CHAR(10) NOT NULL, hora CHAR(5) NOT NULL, veiculo VARCHAR(10) NOT NULL, extras VARCHAR(200) NOT NULL DEFAULT '', total INT NOT NULL, status VARCHAR(12) NOT NULL, slot_key VARCHAR(16) NULL, expira_em BIGINT NOT NULL DEFAULT 0, criado_em BIGINT NOT NULL, UNIQUE KEY uq_slot (slot_key), KEY ix_cli (cliente_id), KEY ix_data (data)) DEFAULT CHARSET=utf8mb4");
+    await q("CREATE TABLE IF NOT EXISTS galeria (id BIGINT AUTO_INCREMENT PRIMARY KEY, data CHAR(10) NOT NULL, legenda VARCHAR(80) NOT NULL DEFAULT '', mime VARCHAR(20) NOT NULL, img MEDIUMBLOB NOT NULL, criado_em BIGINT NOT NULL, KEY ix_data (data)) DEFAULT CHARSET=utf8mb4");
     await q("CREATE TABLE IF NOT EXISTS limites (chave VARCHAR(80) PRIMARY KEY, n INT NOT NULL, ate BIGINT NOT NULL) DEFAULT CHARSET=utf8mb4");
   })().catch((e) => { ready = null; throw e; });
   return ready;

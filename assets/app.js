@@ -193,31 +193,42 @@
     state.me = d.cliente || null; list = d.agendamentos || [];
     renderAcct(); renderMine();
   }
+  function goAcct(msg) {
+    if (msg) showError(msg);
+    acctEl.scrollIntoView({ behavior: "smooth", block: "center" });
+    const f = $("a-phone"); if (f) setTimeout(() => f.focus({ preventScroll: true }), 400);
+  }
   function renderAcct() {
+    const hc = $("head-cta"); if (hc) hc.textContent = state.me ? "Agendar" : "Entrar";
+    submitBtn.textContent = state.me ? "Reservar horário" : "Entrar para reservar";
+    acctEl.classList.toggle("gate", !state.me);
     if (state.me) {
-      acctEl.innerHTML = `<p class="acct-hi">Olá, <b>${esc(state.me.nome)}</b> · ${esc(formatPhone(state.me.telefone))} <button type="button" class="link-btn" id="logout">Sair</button></p>${state.me.bloqueado ? '<p class="form-error is-visible">Sua conta está bloqueada para agendar online. Fale com a gente pelo WhatsApp.</p>' : ""}`;
+      acctEl.innerHTML = `<p class="acct-hi">✔ Conectado como <b>${esc(state.me.nome)}</b> · ${esc(formatPhone(state.me.telefone))} <button type="button" class="link-btn" id="logout">Sair</button></p>${state.me.bloqueado ? '<p class="form-error is-visible">Sua conta está bloqueada para agendar online. Fale com a gente pelo WhatsApp.</p>' : ""}`;
       $("logout").onclick = async () => { await post("/api/auth", { action: "logout" }); resultEl.innerHTML = ""; await refreshMe(); };
       return;
     }
     const reg = mode === "register";
-    acctEl.innerHTML = `<div class="pills"><button type="button" class="pill ${reg ? "" : "is-selected"}" data-m="login">Entrar</button><button type="button" class="pill ${reg ? "is-selected" : ""}" data-m="register">Criar conta</button></div>
-      <div class="field-grid acct-fields">${reg ? '<div class="field"><label for="a-name">Nome</label><input id="a-name" maxlength="60" autocomplete="name"></div>' : ""}<div class="field"><label for="a-phone">WhatsApp</label><input id="a-phone" type="tel" inputmode="tel" maxlength="15" placeholder="(22) 99999-9999" autocomplete="tel-national"></div><div class="field"><label for="a-pin">Senha (4 a 8 números)</label><input id="a-pin" type="password" inputmode="numeric" maxlength="8" autocomplete="${reg ? "new-password" : "current-password"}"></div></div>
-      <button type="button" class="btn btn-primary btn-sm" id="a-go">${reg ? "Criar minha conta" : "Entrar"}</button>`;
+    acctEl.innerHTML = `<h3>${reg ? "Criar minha conta" : "Entre para agendar"}</h3><p>${reg ? "Leva 10 segundos: nome, WhatsApp e uma senha de 4 a 8 números." : "Use o WhatsApp e a senha que você cadastrou. Ainda não tem conta? Toque em Criar conta."}</p>
+      <div class="pills"><button type="button" class="pill ${reg ? "" : "is-selected"}" data-m="login">Entrar</button><button type="button" class="pill ${reg ? "is-selected" : ""}" data-m="register">Criar conta</button></div>
+      <form id="a-form" novalidate><div class="field-grid acct-fields">${reg ? '<div class="field"><label for="a-name">Nome</label><input id="a-name" maxlength="60" autocomplete="name"></div>' : ""}<div class="field"><label for="a-phone">WhatsApp</label><input id="a-phone" type="tel" inputmode="tel" maxlength="15" placeholder="(22) 99999-9999" autocomplete="tel-national"></div><div class="field"><label for="a-pin">Senha (4 a 8 números)</label><input id="a-pin" type="password" inputmode="numeric" maxlength="8" autocomplete="${reg ? "new-password" : "current-password"}"></div></div>
+      <button type="submit" class="btn btn-primary btn-sm" id="a-go">${reg ? "Criar minha conta" : "Entrar"}</button></form>`;
     acctEl.querySelectorAll("[data-m]").forEach((x) => x.addEventListener("click", () => { mode = x.dataset.m; clearError(); renderAcct(); }));
     const ph = $("a-phone"); ph.addEventListener("input", () => { ph.value = formatPhone(ph.value); });
-    $("a-go").addEventListener("click", async () => {
-      clearError();
-      const body = { action: mode, phone: ph.value, pin: $("a-pin").value, name: reg && $("a-name").value };
-      const r = await post("/api/auth", body);
+    $("a-form").addEventListener("submit", async (e) => {
+      e.preventDefault(); clearError();
+      const go = $("a-go"); go.disabled = true;
+      const r = await post("/api/auth", { action: mode, phone: ph.value, pin: $("a-pin").value, name: reg && $("a-name").value });
+      go.disabled = false;
       if (!r.ok) return showError(r.d.error || "Não foi possível entrar agora.");
       await refreshMe();
+      formEl.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   }
 
   formEl.addEventListener("submit", async (e) => {
     e.preventDefault();
     clearError();
-    if (!state.me) return showError("Entre ou crie sua conta no passo 4 para agendar.");
+    if (!state.me) return goAcct("Primeiro entre ou crie sua conta aqui em cima para reservar.");
     if (!state.date || !state.time) return showError("Escolha um dia e um horário.");
     if (!state.vehicle) return showError("Escolha o tipo de veículo.");
     submitBtn.disabled = true;
@@ -227,7 +238,7 @@
       if (!r.ok) {
         showError(r.d.error || "Não foi possível reservar esse horário.");
         if (r.status === 409) await renderSlots(state.date);
-        if (r.status === 401) await refreshMe();
+        if (r.status === 401) { await refreshMe(); goAcct("Sua sessão expirou. Entre novamente para reservar."); }
         return;
       }
       const b = r.d.agendamento;
@@ -239,15 +250,28 @@
       showError("Erro de conexão. Tente novamente.");
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Reservar horário";
+      submitBtn.textContent = state.me ? "Reservar horário" : "Entrar para reservar";
     }
   });
+
+  // quadro de serviços (fotos enviadas pelo painel)
+  async function loadBoard() {
+    const el = $("board"); if (!el) return;
+    const { ok, d } = await api("/api/galeria");
+    if (!ok || !d.fotos || !d.fotos.length) return;
+    const hoje = toISODate(new Date()), ontem = toISODate(new Date(Date.now() - 864e5));
+    const rot = (iso) => (iso === hoje ? "Hoje" : iso === ontem ? "Ontem" : `${iso.slice(8)}/${iso.slice(5, 7)}`);
+    const g = {}; d.fotos.forEach((f) => (g[f.data] = g[f.data] || []).push(f));
+    el.innerHTML = Object.keys(g).sort().reverse().map((day) => `<h3 class="board-day">${rot(day)}</h3><div class="gallery">${g[day].map((f) => `<figure><img src="/api/galeria?img=${f.id}" alt="${esc(f.legenda || "Serviço realizado")}" loading="lazy" decoding="async">${f.legenda ? `<figcaption>${esc(f.legenda)}</figcaption>` : ""}</figure>`).join("")}</div>`).join("");
+  }
+  loadBoard();
 
   wirePillGroup(vehiclePillsEl, false);
   wirePillGroup(extrasPillsEl, true);
   renderDatePills();
   updateSummary();
   refreshMe();
+  const hcta = $("head-cta"); if (hcta) hcta.addEventListener("click", () => { if (!state.me) setTimeout(() => goAcct(), 50); });
 
   // acesso discreto ao painel: 5 toques rápidos na logo do rodapé
   let taps = 0, tt;

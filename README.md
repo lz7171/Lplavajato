@@ -17,3 +17,10 @@ Abra `/lz-painel` (não aparece no site nem no Google) ou dê 5 toques rápidos 
 - 3 strikes (reserva expirada ou falta) = bloqueio do agendamento online (você desbloqueia no painel).
 - Antecedência mínima de 90 min; limites por IP/conta no cadastro, login e reservas; cliente pode cancelar o próprio horário.
 - Regras ajustáveis no topo de `api/_core.js` (`HOLD_MIN`, `MAX_STRIKES`, `MAX_NEW`, `MAX_TRUSTED`) e `api/_lib.js` (dias, horários, preços).
+
+## Novidades (v2.1)
+- **Quadro de serviços**: no painel, aba *Quadro*, envie fotos (reduzidas automaticamente) com data e legenda; elas aparecem no site agrupadas por dia (Hoje, Ontem…). Ficam no próprio banco (tabela `galeria`), sem serviço extra.
+- **Folgas**: aba *Folgas* bloqueia um horário ou o dia todo (some da agenda do cliente).
+- **Painel**: botão WhatsApp (lembrete/agradecimento), exportar CSV, reativar falta devolve o strike.
+- **Login guiado**: o cartão de conta fica no topo da agenda, o botão do topo vira *Entrar* e a reserva sem login leva direto ao cadastro.
+- `/api/db-ping` foi removido (expunha detalhes do banco). Defina `ADMIN_PASSWORD` no Vercel.

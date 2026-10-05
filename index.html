@@ -209,6 +209,12 @@ html { scroll-padding-top: 76px; }
 .card .row small { color: var(--muted); display: block; }
 .card .ok { color: #46d37a; font-weight: 800; } .card .wait { color: #ffb02e; font-weight: 800; }
 .btn-sm { padding: 8px 14px; font-size: .85rem; }
+.head-cta { display: inline-block; margin-left: auto; }
+.site-nav { margin-left: 0; }
+#acct.gate { border-color: var(--red); box-shadow: 0 0 0 4px rgba(226,35,26,.15); }
+#acct p { margin: 0 0 12px; }
+.board-day { margin: 26px 0 12px; color: var(--text); }
+.board-day:first-child { margin-top: 0; }
 .btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
 </style>
 </head>
@@ -220,7 +226,7 @@ html { scroll-padding-top: 76px; }
       <img src="assets/logo.webp" alt="LZ Lava-Jato" class="brand-mark" width="360" height="217">
     </a>
     <nav class="site-nav" aria-label="Seções"><a href="#servicos">Serviços</a><a href="#trabalhos">Trabalhos</a><a href="#horario">Horários</a><a href="#agendar">Agendar</a></nav>
-    <a class="btn btn-primary head-cta" href="#agendar">Agendar</a>
+    <a class="btn btn-primary head-cta" id="head-cta" href="#agendar">Entrar</a>
     <a class="whats-pill" href="https://wa.me/5522998641962" target="_blank" rel="noopener">(22) 99864-1962</a>
   </div>
 </header>
@@ -250,12 +256,12 @@ html { scroll-padding-top: 76px; }
 
   <section class="section" id="trabalhos">
     <div class="wrap">
-      <h2>Nossos trabalhos</h2>
-      <div class="gallery">
+      <h2>Quadro de serviços</h2>
+      <div id="board"><div class="gallery">
         <figure><img src="assets/moto.webp" alt="Duas motos pretas lavadas e brilhando" width="720" height="1281" loading="lazy" decoding="async"><figcaption>Motos</figcaption></figure>
         <figure><img src="assets/carro.webp" alt="Carro preto lavado e polido" width="900" height="832" loading="lazy" decoding="async"><figcaption>Carros · exterior</figcaption></figure>
         <figure><img src="assets/interior.webp" alt="Banco traseiro de couro limpo e higienizado" width="720" height="1279" loading="lazy" decoding="async"><figcaption>Carros · interior</figcaption></figure>
-      </div>
+      </div></div>
     </div>
   </section>
 
@@ -273,8 +279,9 @@ html { scroll-padding-top: 76px; }
   <section class="section booking" id="agendar">
     <div class="wrap">
       <h2>Agendar horário</h2>
-      <p class="hero-sub">Escolha o dia e o horário e confirme pelo WhatsApp. Crie sua conta (WhatsApp + senha) para agendar. A agenda abre uma semana por vez, de quinta a domingo.</p>
+      <p class="hero-sub">Escolha o dia e o horário e confirme pelo WhatsApp. Primeiro entre na sua conta (WhatsApp + senha) — sem conta não é possível reservar. A agenda abre uma semana por vez, de quinta a domingo.</p>
 
+      <div id="acct" class="card"></div>
       <div id="mine"></div>
       <div id="result"></div>
 
@@ -313,14 +320,6 @@ html { scroll-padding-top: 76px; }
               <button type="button" class="pill" data-extra="Descontaminação" data-price="20" aria-pressed="false">Descontaminação +20</button>
               <button type="button" class="pill" data-extra="Vidros" data-price="15" aria-pressed="false">Vidros +15</button>
             </div>
-          </div>
-        </div>
-
-        <div class="step">
-          <span class="step-num">4</span>
-          <div class="step-body">
-            <span class="step-label">Sua conta</span>
-            <div id="acct"></div>
           </div>
         </div>
 
