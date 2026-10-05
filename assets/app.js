@@ -157,67 +157,102 @@
     if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
     return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
   }
-
-  function isValidPhone(value) {
-    const d = value.replace(/\D/g, "");
-    if (d.length !== 10 && d.length !== 11) return false;
-    if (!/^[1-9][1-9]/.test(d)) return false;
-    return d.length === 10 || d[2] === "9";
-  }
-
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const acctEl = $("acct"), mineEl = $("mine"), resultEl = $("result");
   function showError(msg) { errorEl.textContent = msg; errorEl.classList.add("is-visible"); }
   function clearError() { errorEl.textContent = ""; errorEl.classList.remove("is-visible"); }
+  async function api(path, opts) {
+    const r = await fetch(path, { credentials: "same-origin", ...opts });
+    let d = {}; try { d = await r.json(); } catch (e) { /* sem JSON */ }
+    return { ok: r.ok, status: r.status, d };
+  }
+  const post = (path, body) => api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const whenLabel = (b) => { const [y, m, d] = b.data.split("-").map(Number); return `${DAY_LABEL[new Date(y, m - 1, d).getDay()]}, ${pad(d)}/${pad(m)} às ${b.hora}`; };
+  const hhmm = (ms) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
-  function buildWhatsAppMessage(name, phone) {
-    const [y, m, d] = state.date.split("-").map(Number);
-    const dObj = new Date(y, m - 1, d);
-    const when = `${DAY_LABEL[dObj.getDay()]}, ${pad(d)}/${pad(m)} às ${state.time}`;
-    const extrasLine = state.extras.size ? [...state.extras.entries()].map(([n, p]) => `  • ${n} (+R$ ${p})`).join("\n") : "  • Nenhum";
-    return ["*Novo agendamento — LZ Lava-Jato*", "", `Nome: ${name}`, `WhatsApp: ${phone}`, `Dia/horário: ${when}`, `Veículo: ${state.vehicle} (R$ ${state.vehiclePrice})`, "Adicionais:", extrasLine, "", `*Total: R$ ${currentTotal()}*`].join("\n");
+  function waLink(b) {
+    const ex = b.extras.length ? b.extras.map((n) => `  • ${n}`).join("\n") : "  • Nenhum";
+    const msg = ["*Novo agendamento — LZ Lava-Jato*", "", `Protocolo: #${b.id}`, `Nome: ${state.me.nome}`, `WhatsApp: ${formatPhone(state.me.telefone)}`, `Dia/horário: ${whenLabel(b)}`, `Veículo: ${b.veiculo}`, "Adicionais:", ex, "", `*Total: R$ ${b.total}*`].join("\n");
+    return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+  }
+
+  let list = [], mode = "login";
+  function renderMine() {
+    if (!state.me || !list.length) { mineEl.innerHTML = ""; return; }
+    mineEl.innerHTML = `<div class="card"><h3>Meus agendamentos</h3>${list.map((b) => `<div class="row"><div><b>${esc(whenLabel(b))}</b> · ${esc(b.veiculo)} · R$ ${b.total}<small>${b.status === "confirmado" ? '<span class="ok">Confirmado</span>' : `<span class="wait">Aguardando confirmação</span> — envie a mensagem no WhatsApp até ${hhmm(b.expira_em)}`}</small></div><div>${b.status === "pendente" ? `<a class="btn btn-primary btn-sm" href="${waLink(b)}" target="_blank" rel="noopener">WhatsApp</a> ` : ""}<button type="button" class="btn btn-ghost btn-sm" data-cancel="${b.id}">Cancelar</button></div></div>`).join("")}</div>`;
+    mineEl.querySelectorAll("[data-cancel]").forEach((btn) => btn.addEventListener("click", async () => {
+      if (!confirm("Cancelar este agendamento?")) return;
+      await api(`/api/book?id=${btn.dataset.cancel}`, { method: "DELETE" });
+      resultEl.innerHTML = "";
+      await refreshMe(); if (state.date) renderSlots(state.date);
+    }));
+  }
+  async function refreshMe() {
+    const { d } = await api("/api/auth");
+    state.me = d.cliente || null; list = d.agendamentos || [];
+    renderAcct(); renderMine();
+  }
+  function renderAcct() {
+    if (state.me) {
+      acctEl.innerHTML = `<p class="acct-hi">Olá, <b>${esc(state.me.nome)}</b> · ${esc(formatPhone(state.me.telefone))} <button type="button" class="link-btn" id="logout">Sair</button></p>${state.me.bloqueado ? '<p class="form-error is-visible">Sua conta está bloqueada para agendar online. Fale com a gente pelo WhatsApp.</p>' : ""}`;
+      $("logout").onclick = async () => { await post("/api/auth", { action: "logout" }); resultEl.innerHTML = ""; await refreshMe(); };
+      return;
+    }
+    const reg = mode === "register";
+    acctEl.innerHTML = `<div class="pills"><button type="button" class="pill ${reg ? "" : "is-selected"}" data-m="login">Entrar</button><button type="button" class="pill ${reg ? "is-selected" : ""}" data-m="register">Criar conta</button></div>
+      <div class="field-grid acct-fields">${reg ? '<div class="field"><label for="a-name">Nome</label><input id="a-name" maxlength="60" autocomplete="name"></div>' : ""}<div class="field"><label for="a-phone">WhatsApp</label><input id="a-phone" type="tel" inputmode="tel" maxlength="15" placeholder="(22) 99999-9999" autocomplete="tel-national"></div><div class="field"><label for="a-pin">Senha (4 a 8 números)</label><input id="a-pin" type="password" inputmode="numeric" maxlength="8" autocomplete="${reg ? "new-password" : "current-password"}"></div></div>
+      <button type="button" class="btn btn-primary btn-sm" id="a-go">${reg ? "Criar minha conta" : "Entrar"}</button>`;
+    acctEl.querySelectorAll("[data-m]").forEach((x) => x.addEventListener("click", () => { mode = x.dataset.m; clearError(); renderAcct(); }));
+    const ph = $("a-phone"); ph.addEventListener("input", () => { ph.value = formatPhone(ph.value); });
+    $("a-go").addEventListener("click", async () => {
+      clearError();
+      const body = { action: mode, phone: ph.value, pin: $("a-pin").value, name: reg && $("a-name").value };
+      const r = await post("/api/auth", body);
+      if (!r.ok) return showError(r.d.error || "Não foi possível entrar agora.");
+      await refreshMe();
+    });
   }
 
   formEl.addEventListener("submit", async (e) => {
     e.preventDefault();
     clearError();
-    const name = document.getElementById("name").value.trim();
-    const phone = document.getElementById("phone").value.trim();
+    if (!state.me) return showError("Entre ou crie sua conta no passo 4 para agendar.");
     if (!state.date || !state.time) return showError("Escolha um dia e um horário.");
     if (!state.vehicle) return showError("Escolha o tipo de veículo.");
-    if (name.length < 2) return showError("Informe seu nome.");
-    if (!isValidPhone(phone)) return showError("Informe um WhatsApp válido com DDD, ex.: (22) 99999-9999.");
-
     submitBtn.disabled = true;
     submitBtn.textContent = "Reservando…";
     try {
-      const res = await fetch("/api/book", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: state.date, time: state.time, name, phone, vehicle: state.vehicle, extras: [...state.extras.keys()] }),
-      });
-      let data = {};
-      try { data = await res.json(); } catch (e) { /* resposta sem JSON */ }
-      if (!res.ok) {
-        showError(data.error || "Não foi possível reservar esse horário.");
-        if (res.status === 409) await renderSlots(state.date);
+      const r = await post("/api/book", { date: state.date, time: state.time, vehicle: state.vehicle, extras: [...state.extras.keys()] });
+      if (!r.ok) {
+        showError(r.d.error || "Não foi possível reservar esse horário.");
+        if (r.status === 409) await renderSlots(state.date);
+        if (r.status === 401) await refreshMe();
         return;
       }
-      const msg = buildWhatsAppMessage(name, phone);
-      window.location.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
+      const b = r.d.agendamento;
+      resultEl.innerHTML = `<div class="card"><h3>Reserva criada!</h3><p>${esc(whenLabel(b))} · ${esc(b.veiculo)} · <b>R$ ${b.total}</b></p>${b.status === "pendente" ? `<p><span class="wait">Falta confirmar:</span> envie a mensagem no WhatsApp até <b>${hhmm(b.expira_em)}</b>. Depois disso o horário volta para a agenda.</p><a class="btn btn-primary" href="${waLink(b)}" target="_blank" rel="noopener">Enviar no WhatsApp</a>` : `<p class="ok">Confirmado! Se quiser, avise no WhatsApp:</p><a class="btn btn-primary" href="${waLink(b)}" target="_blank" rel="noopener">Abrir WhatsApp</a>`}</div>`;
+      resultEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      state.time = null; updateSummary();
+      await refreshMe(); await renderSlots(state.date);
     } catch (err) {
       showError("Erro de conexão. Tente novamente.");
     } finally {
       submitBtn.disabled = false;
-      submitBtn.textContent = "Confirmar e enviar no WhatsApp";
+      submitBtn.textContent = "Reservar horário";
     }
   });
-
-  const phoneEl = document.getElementById("phone");
-  phoneEl.addEventListener("input", () => { phoneEl.value = formatPhone(phoneEl.value); });
 
   wirePillGroup(vehiclePillsEl, false);
   wirePillGroup(extrasPillsEl, true);
   renderDatePills();
   updateSummary();
+  refreshMe();
+
+  // acesso discreto ao painel: 5 toques rápidos na logo do rodapé
+  let taps = 0, tt;
+  const fl = document.querySelector(".site-footer .brand-mark");
+  if (fl) fl.addEventListener("click", () => { taps++; clearTimeout(tt); tt = setTimeout(() => { taps = 0; }, 1500); if (taps >= 5) location.href = "/lz-painel"; });
 
   // movimento: itens entram suavemente ao rolar a página
   const reveal = document.querySelectorAll(".price-row, .extras-list li, .gallery figure, .time-chips span");

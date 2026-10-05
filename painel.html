@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow, noarchive"><title>Painel</title><link rel="icon" href="/assets/favicon.png">
+<style>
+:root{--bg:#0c0c0d;--card:#17181a;--line:#2a2b2d;--red:#e2231a;--rb:#ff4438;--t:#f3f1ec;--m:#9a9b9f;--ok:#46d37a;--wait:#ffb02e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px/1.45 system-ui,sans-serif}
+.w{max-width:1100px;margin:0 auto;padding:16px}h1{font-size:1.2rem;margin:0}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}header .sp{flex:1}
+button,input,select{font:inherit;color:var(--t);background:var(--card);border:1px solid var(--line);padding:8px 12px;border-radius:6px}
+button{cursor:pointer;font-weight:700}button.p{background:var(--red);border-color:var(--red)}button.on{border-color:var(--rb);color:var(--rb)}button.s{padding:4px 9px;font-size:.8rem;margin:2px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.k{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px}.k b{display:block;font-size:1.5rem}.k span{color:var(--m);font-size:.8rem}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:14px;overflow-x:auto}.box h2{font-size:1rem;margin:0 0 8px}
+table{width:100%;border-collapse:collapse;font-size:.88rem}td,th{padding:7px 6px;border-top:1px solid var(--line);text-align:left;vertical-align:top}th{color:var(--m);font-weight:600;border:0}
+a{color:var(--rb)}.b{padding:2px 8px;border-radius:99px;font-size:.75rem;font-weight:800;background:#2a2b2d}
+.pendente{color:var(--wait)}.confirmado,.concluido{color:var(--ok)}.faltou,.cancelado,.expirado{color:var(--m)}.bad{color:var(--rb)}
+.bar{display:flex;align-items:center;gap:8px;margin:4px 0;font-size:.85rem}.bar i{display:block;height:8px;background:var(--red);border-radius:4px}.bar span{min-width:110px}
+.tools{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.err{color:var(--rb);font-weight:700}.login{max-width:320px;margin:20vh auto;text-align:center}.login input{width:100%;margin:12px 0}
+</style></head><body><div class="w" id="app"></div><script src="/assets/painel.js" defer></script></body></html>

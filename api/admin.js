@@ -1,120 +1,63 @@
+// Painel secreto (/lz-painel). Senha = variável ADMIN_PASSWORD no Vercel.
 const crypto = require("crypto");
-const { kv } = require("@vercel/kv");
+const { db } = require("./_db");
+const C = require("./_core");
 const L = require("./_lib");
 
-// Uso (Termux):
-//   curl -H "Authorization: Bearer $TOKEN" "https://SEU-SITE/api/admin?date=2026-10-10"
-//   curl -H "Authorization: Bearer $TOKEN" "https://SEU-SITE/api/admin?days=14&format=text"
-//   curl -X DELETE -H "Authorization: Bearer $TOKEN" "https://SEU-SITE/api/admin?date=2026-10-10&time=09:00"
-// Requer a variável de ambiente ADMIN_TOKEN no Vercel.
-
-function digest(value) {
-  return crypto.createHash("sha256").update(String(value)).digest();
-}
-
-function tokenMatches(received, expected) {
-  return crypto.timingSafeEqual(digest(received), digest(expected));
-}
-
-function parseDetail(value) {
-  if (!value) return null;
-  if (typeof value === "string") {
-    try { return JSON.parse(value); } catch (e) { return null; }
-  }
-  return typeof value === "object" ? value : null;
-}
-
-async function listDate(date) {
-  const times = ((await kv.smembers(`booked:${date}`)) || []).filter(L.isValidSlot).sort();
-  if (!times.length) return [];
-  const details = await kv.mget(...times.map((t) => `detail:${date}:${t}`));
-  return times.map((time, i) => {
-    const d = parseDetail(details && details[i]);
-    return d
-      ? { date, time, name: d.name, phone: d.phone, vehicle: d.vehicle, extras: d.extras || [], total: d.total, createdAt: d.createdAt }
-      : { date, time, name: null, phone: null, vehicle: null, extras: [], total: null, note: "sem detalhes" };
-  });
-}
-
-function asText(items) {
-  if (!items.length) return "Nenhum agendamento.\n";
-  return items
-    .map((b) => {
-      const [y, m, d] = b.date.split("-");
-      const extras = b.extras.length ? ` + ${b.extras.join(", ")}` : "";
-      const total = b.total == null ? "" : ` | R$ ${b.total}`;
-      return `${d}/${m}/${y} ${b.time} | ${b.name || "(sem nome)"} | ${b.phone || "-"} | ${b.vehicle || "-"}${extras}${total}`;
-    })
-    .join("\n") + "\n";
-}
+const sha = (v) => crypto.createHash("sha256").update(String(v)).digest();
+const same = (a, b) => crypto.timingSafeEqual(sha(a), sha(b));
 
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "no-store");
-
-  const expected = process.env.ADMIN_TOKEN;
-  if (!expected || expected.length < 16) {
-    res.status(503).json({ error: "Painel desativado: defina ADMIN_TOKEN (mín. 16 caracteres) no Vercel." });
-    return;
-  }
+  res.setHeader("X-Robots-Tag", "noindex, nofollow");
+  const pass = process.env.ADMIN_PASSWORD;
+  if (!pass || pass.length < 8) return res.status(503).json({ error: "Painel desativado: defina ADMIN_PASSWORD (mín. 8 caracteres) no Vercel e faça novo deploy." });
 
   try {
-    const ip = L.clientIp(req);
-    if (!(await L.withinLimit(kv, `rl:admin:${ip}`, 20, 10 * 60))) {
-      res.status(429).json({ error: "Muitas tentativas. Aguarde alguns minutos." });
-      return;
-    }
+    await C.init();
+    const b = req.method === "POST" ? L.readBody(req) : {};
 
-    const auth = String(req.headers.authorization || "");
-    const received = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
-    if (!received || !tokenMatches(received, expected)) {
-      res.status(401).json({ error: "Não autorizado." });
-      return;
+    if (b.action === "login") {
+      if (!(await C.limite(`ad:${L.clientIp(req)}`, 6, 15 * 60e3))) return res.status(429).json({ error: "Muitas tentativas. Aguarde 15 minutos." });
+      if (!same(b.password || "", pass)) return res.status(401).json({ error: "Senha incorreta." });
+      C.setCookie(res, "lz_a", C.sign({ t: "a", exp: Date.now() + 8 * 3600e3 }), 8 * 3600);
+      return res.status(200).json({ ok: true });
     }
+    if (b.action === "logout") { C.setCookie(res, "lz_a", "", 0); return res.status(200).json({ ok: true }); }
+    if (!C.isAdmin(req)) return res.status(401).json({ error: "Não autorizado." });
 
-    const query = req.query || {};
-    const date = query.date;
+    await C.sweep();
+    const q = (s, p) => db().query(s, p);
 
     if (req.method === "GET") {
-      let items = [];
-      if (date !== undefined) {
-        if (!L.parseISODate(date)) {
-          res.status(400).json({ error: "Use date=AAAA-MM-DD." });
-          return;
-        }
-        items = await listDate(date);
-      } else {
-        const days = Math.min(Math.max(parseInt(query.days, 10) || 7, 1), 31);
-        const today = L.nowInSaoPaulo().date;
-        const dates = [];
-        for (let i = 0; i < days; i++) {
-          const d = L.addDays(today, i);
-          if (L.isOpenDay(d)) dates.push(d);
-        }
-        items = (await Promise.all(dates.map(listDate))).flat();
-      }
-      if (query.format === "text") {
-        res.setHeader("Content-Type", "text/plain; charset=utf-8");
-        res.status(200).send(asText(items));
-      } else {
-        res.status(200).json({ count: items.length, bookings: items });
-      }
-      return;
+      const now = L.nowInSaoPaulo();
+      const [bookings] = await q("SELECT a.id,a.data,a.hora,a.veiculo,a.extras,a.total,a.status,a.expira_em,a.criado_em,c.id cliente_id,c.nome,c.telefone FROM agendamentos a JOIN clientes c ON c.id=a.cliente_id WHERE a.data>=? ORDER BY a.data DESC,a.hora DESC LIMIT 1500", [L.addDays(now.date, -60)]);
+      const [clientes] = await q("SELECT c.id,c.nome,c.telefone,c.strikes,c.bloqueado,c.criado_em,COUNT(a.id) total,COALESCE(SUM(a.status='concluido'),0) feitos,COALESCE(SUM(a.status='faltou'),0) faltas,COALESCE(SUM(CASE WHEN a.status='concluido' THEN a.total END),0) gasto FROM clientes c LEFT JOIN agendamentos a ON a.cliente_id=c.id GROUP BY c.id ORDER BY c.criado_em DESC LIMIT 1500");
+      return res.status(200).json({ hoje: now.date, agora: Date.now(), holdMin: C.HOLD_MIN, bookings: bookings.map((x) => ({ ...C.shape(x), cliente_id: x.cliente_id, nome: x.nome, telefone: x.telefone, criado_em: Number(x.criado_em) })), clientes: clientes.map((c) => ({ ...c, total: +c.total, feitos: +c.feitos, faltas: +c.faltas, gasto: +c.gasto, criado_em: Number(c.criado_em), bloqueado: !!c.bloqueado })) });
     }
+    if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido." });
+    const id = parseInt(b.id, 10);
 
-    if (req.method === "DELETE") {
-      const time = query.time;
-      if (!L.parseISODate(date) || !L.isValidSlot(time)) {
-        res.status(400).json({ error: "Use date=AAAA-MM-DD&time=HH:MM." });
-        return;
-      }
-      const removed = await kv.srem(`booked:${date}`, time);
-      await kv.del(`detail:${date}:${time}`);
-      res.status(200).json({ ok: true, date, time, removed: removed > 0 });
-      return;
+    if (b.action === "status") {
+      if (!["confirmado", "concluido", "faltou", "cancelado"].includes(b.status)) return res.status(400).json({ error: "Status inválido." });
+      const [[a]] = await q("SELECT * FROM agendamentos WHERE id=?", [id]);
+      if (!a) return res.status(404).json({ error: "Agendamento não encontrado." });
+      const libera = b.status === "faltou" || b.status === "cancelado";
+      try { await q("UPDATE agendamentos SET status=?, slot_key=?, expira_em=0 WHERE id=?", [b.status, libera ? null : `${a.data} ${a.hora}`, id]); }
+      catch (e) { if (e.code === "ER_DUP_ENTRY") return res.status(409).json({ error: "Esse horário já foi ocupado por outro agendamento." }); throw e; }
+      if (b.status === "faltou" && a.status !== "faltou") await q("UPDATE clientes SET strikes=strikes+1, bloqueado=IF(strikes>=?,1,bloqueado) WHERE id=?", [C.MAX_STRIKES, a.cliente_id]);
+      return res.status(200).json({ ok: true });
     }
-
-    res.setHeader("Allow", "GET, DELETE");
-    res.status(405).json({ error: "Método não permitido." });
+    if (b.action === "cliente") {
+      if (b.op === "block") await q("UPDATE clientes SET bloqueado=1 WHERE id=?", [id]);
+      else if (b.op === "unblock") await q("UPDATE clientes SET bloqueado=0, strikes=0 WHERE id=?", [id]);
+      else if (b.op === "pin") {
+        if (!/^\d{4,8}$/.test(String(b.pin || ""))) return res.status(400).json({ error: "Senha: 4 a 8 números." });
+        await q("UPDATE clientes SET senha=? WHERE id=?", [C.hashPin(String(b.pin)), id]);
+      } else return res.status(400).json({ error: "Operação inválida." });
+      return res.status(200).json({ ok: true });
+    }
+    res.status(400).json({ error: "Ação inválida." });
   } catch (err) {
     console.error("admin error:", err);
     res.status(500).json({ error: "Erro ao acessar o banco de dados." });

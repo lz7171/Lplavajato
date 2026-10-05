@@ -17,7 +17,7 @@ function lerConfig() {
   try {
     u = new URL(raw);
   } catch {
-    throw erro('ENV_INVALID', 'DATABASE_URL inválida. Formato: mysql://usuario:senha@host:4000/banco (senha com caracteres especiais precisa estar codificada)');
+    throw erro('ENV_INVALID', 'DATABASE_URL inválida. Use o formato mysql://, com usuário, senha, host, porta e nome do banco (caracteres especiais na senha precisam estar codificados)');
   }
   if (!/^mysql2?:$/.test(u.protocol)) throw erro('ENV_INVALID', 'DATABASE_URL deve começar com mysql://');
   if (!u.hostname || u.pathname.length < 2) throw erro('ENV_INVALID', 'DATABASE_URL precisa ter host e nome do banco');

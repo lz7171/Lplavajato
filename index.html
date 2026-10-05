@@ -198,6 +198,18 @@ html { scroll-padding-top: 76px; }
 .hours-days span { background: var(--red); color: #fff; border-color: var(--red); }
 @media (prefers-reduced-motion: reduce) { .marquee { overflow-x: auto; } .marquee-track { animation: none; } }
 @media (max-width: 720px) { .svc-card { width: 200px; } .svc-card.is-main { width: 220px; } }
+
+/* v5: conta e meus agendamentos */
+.link-btn { background: none; border: 0; color: var(--red-bright); font: inherit; font-weight: 700; cursor: pointer; text-decoration: underline; padding: 0 4px; }
+.acct-fields { margin: 14px 0; grid-template-columns: 1fr 1fr; }
+.acct-hi { color: var(--text); margin: 0; }
+.card { border: 1px solid var(--line); background: var(--bg-raised); padding: 16px 18px; margin: 18px 0; max-width: 720px; }
+.card h3 { margin: 0 0 10px; color: var(--text); }
+.card .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid var(--line); font-size: .92rem; flex-wrap: wrap; }
+.card .row small { color: var(--muted); display: block; }
+.card .ok { color: #46d37a; font-weight: 800; } .card .wait { color: #ffb02e; font-weight: 800; }
+.btn-sm { padding: 8px 14px; font-size: .85rem; }
+.btn-ghost { background: transparent; border: 1px solid var(--line); color: var(--text); }
 </style>
 </head>
 <body>
@@ -261,7 +273,10 @@ html { scroll-padding-top: 76px; }
   <section class="section booking" id="agendar">
     <div class="wrap">
       <h2>Agendar horário</h2>
-      <p class="hero-sub">Escolha o dia e o horário e confirme pelo WhatsApp. A agenda abre uma semana por vez, de quinta a domingo.</p>
+      <p class="hero-sub">Escolha o dia e o horário e confirme pelo WhatsApp. Crie sua conta (WhatsApp + senha) para agendar. A agenda abre uma semana por vez, de quinta a domingo.</p>
+
+      <div id="mine"></div>
+      <div id="result"></div>
 
       <form id="booking-form" novalidate>
         <div class="step">
@@ -304,11 +319,8 @@ html { scroll-padding-top: 76px; }
         <div class="step">
           <span class="step-num">4</span>
           <div class="step-body">
-            <span class="step-label">Seus dados</span>
-            <div class="field-grid">
-              <div class="field"><label for="name">Nome</label><input type="text" id="name" name="name" autocomplete="name" minlength="2" maxlength="60" required></div>
-              <div class="field"><label for="phone">WhatsApp</label><input type="tel" id="phone" name="phone" placeholder="(22) 99999-9999" autocomplete="tel-national" inputmode="tel" maxlength="15" required></div>
-            </div>
+            <span class="step-label">Sua conta</span>
+            <div id="acct"></div>
           </div>
         </div>
 
@@ -321,7 +333,7 @@ html { scroll-padding-top: 76px; }
 
         <p class="form-error" id="form-error" role="alert"></p>
 
-        <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Confirmar e enviar no WhatsApp</button>
+        <button type="submit" class="btn btn-primary btn-block" id="submit-btn">Reservar horário</button>
       </form>
     </div>
   </section>

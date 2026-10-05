@@ -8,7 +8,8 @@ const TIME_ZONE = "America/Sao_Paulo";
 const OPEN_DAYS = [0, 4, 5, 6]; // Dom, Qui, Sex, Sáb
 const OPEN_TIME = "08:00";
 const CLOSE_TIME = "18:00"; // fim do último atendimento (16:00 + 2h)
-const SLOT_MINUTES = 120; // um atendimento a cada 2 horas: 08, 10, 12, 14, 16
+const SLOT_MINUTES = 120;
+const LEAD_MIN = 90; // antecedência mínima para agendar (minutos) // um atendimento a cada 2 horas: 08, 10, 12, 14, 16
 
 const VEHICLES = { Moto: 30, Carro: 60 };
 const EXTRAS = { Pretinho: 5, RestauraX: 10, Blend: 15, "Descontaminação": 20, Vidros: 15 };
@@ -114,7 +115,7 @@ function isBookableDate(str, now = nowInSaoPaulo()) {
 }
 
 function isPastSlot(date, time, now = nowInSaoPaulo()) {
-  return date === now.date && timeToMinutes(time) <= now.minutes;
+  return date === now.date && timeToMinutes(time) <= now.minutes + LEAD_MIN;
 }
 
 function pastSlotsFor(date, now = nowInSaoPaulo()) {

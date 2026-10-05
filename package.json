@@ -1,6 +1,6 @@
 {
   "name": "lz-lava-jato",
-  "version": "1.1.0",
+  "version": "2.0.0",
   "private": true,
   "description": "Site + agendamento inteligente para LZ Lava-Jato",
   "engines": {
@@ -10,7 +10,6 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@vercel/kv": "^2.0.0",
     "mysql2": "^3.24.5"
   }
 }
