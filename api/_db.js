@@ -17,7 +17,7 @@ function lerConfig() {
   try {
     u = new URL(raw);
   } catch {
-    throw erro('ENV_INVALID', 'DATABASE_URL inválida. Use o formato mysql://, com usuário, senha, host, porta e nome do banco (caracteres especiais na senha precisam estar codificados)');
+    throw erro('ENV_INVALID', 'DATABASE_URL inválida. Formato: mysql://usuario:senha@host:4000/banco (senha com caracteres especiais precisa estar codificada)');
   }
   if (!/^mysql2?:$/.test(u.protocol)) throw erro('ENV_INVALID', 'DATABASE_URL deve começar com mysql://');
   if (!u.hostname || u.pathname.length < 2) throw erro('ENV_INVALID', 'DATABASE_URL precisa ter host e nome do banco');
@@ -25,13 +25,16 @@ function lerConfig() {
   // DB_CA pode chegar com "\n" literal quando salvo em uma linha só
   const ca = process.env.DB_CA ? process.env.DB_CA.replace(/\\n/g, '\n').trim() : '';
 
+  const semSsl = u.searchParams.get('ssl') === 'false' || ['localhost', '127.0.0.1', '::1'].includes(u.hostname);
+
   return {
     host: u.hostname,
     port: Number(u.port) || 3306,
     user: decodeURIComponent(u.username),
     password: decodeURIComponent(u.password),
     database: decodeURIComponent(u.pathname.slice(1)),
-    ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: true, ...(ca ? { ca } : {}) },
+    // TLS obrigatório, exceto banco local (localhost/127.0.0.1) ou ?ssl=false explícito na URL
+    ...(semSsl ? {} : { ssl: { minVersion: 'TLSv1.2', rejectUnauthorized: true, ...(ca ? { ca } : {}) } }),
     waitForConnections: true,
     connectionLimit: 2,
     connectTimeout: 10000,
