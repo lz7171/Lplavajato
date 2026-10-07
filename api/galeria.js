@@ -25,8 +25,8 @@ module.exports = async function handler(req, res) {
     res.setHeader("Cache-Control", "no-store");
     if (!C.isAdmin(req)) return res.status(401).json({ error: "Não autorizado." });
     if (req.method === "DELETE") {
-      await db().query("DELETE FROM galeria WHERE id=?", [parseInt(q.id, 10) || 0]);
-      return res.status(200).json({ ok: true });
+      const [r] = await db().query("DELETE FROM galeria WHERE id=?", [parseInt(q.id, 10) || 0]);
+      return r.affectedRows ? res.status(200).json({ ok: true }) : res.status(404).json({ error: "Essa foto já tinha sido apagada." });
     }
     if (req.method !== "POST") return res.status(405).json({ error: "Método não permitido." });
     const b = L.readBody(req);

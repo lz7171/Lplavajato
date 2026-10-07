@@ -169,7 +169,9 @@
   function showError(msg) { errorEl.textContent = msg; errorEl.classList.add("is-visible"); }
   function clearError() { errorEl.textContent = ""; errorEl.classList.remove("is-visible"); }
   async function api(path, opts) {
-    const r = await fetch(path, { credentials: "same-origin", ...opts });
+    let r;
+    try { r = await fetch(path, { credentials: "same-origin", ...opts }); }
+    catch (e) { return { ok: false, status: 0, d: { error: "Sem conexão com a internet. Tente de novo." } }; }
     let d = {}; try { d = await r.json(); } catch (e) { /* sem JSON */ }
     return { ok: r.ok, status: r.status, d };
   }
@@ -189,13 +191,15 @@
     mineEl.innerHTML = `<div class="card"><h3>Meus agendamentos</h3>${list.map((b) => `<div class="row"><div><b>${esc(whenLabel(b))}</b> · ${esc(b.veiculo)} · R$ ${b.total}<small>${b.status === "confirmado" ? '<span class="ok">Confirmado</span>' : `<span class="wait">Aguardando confirmação</span> — envie a mensagem no WhatsApp até ${hhmm(b.expira_em)}`}</small></div><div>${b.status === "pendente" ? `<a class="btn btn-primary btn-sm" href="${waLink(b)}" target="_blank" rel="noopener">WhatsApp</a> ` : ""}<button type="button" class="btn btn-ghost btn-sm" data-cancel="${b.id}">Cancelar</button></div></div>`).join("")}</div>`;
     mineEl.querySelectorAll("[data-cancel]").forEach((btn) => btn.addEventListener("click", async () => {
       if (!confirm("Cancelar este agendamento?")) return;
-      await api(`/api/book?id=${btn.dataset.cancel}`, { method: "DELETE" });
+      const r = await api(`/api/book?id=${encodeURIComponent(btn.dataset.cancel)}`, { method: "DELETE" });
+      if (!r.ok || !r.d.ok) alert(r.d.error || "Não foi possível cancelar agora. Tente de novo.");
       resultEl.innerHTML = "";
       await refreshMe(); if (state.date) renderSlots(state.date);
     }));
   }
   async function refreshMe() {
-    const { d } = await api("/api/auth");
+    const { ok, d } = await api("/api/auth");
+    if (!ok && state.me) return; // falha momentânea: mantém a sessão que já estava na tela
     state.me = d.cliente || null; list = d.agendamentos || [];
     renderAcct(); renderMine();
   }
@@ -218,7 +222,7 @@
     const reg = mode === "register";
     acctEl.innerHTML = `<h3>${reg ? "Criar minha conta" : "Entre para agendar"}</h3><p>${reg ? "Leva 10 segundos: nome, WhatsApp e uma senha de 4 a 8 números." : "Use o WhatsApp e a senha que você cadastrou. Ainda não tem conta? Toque em Criar conta."}</p>
       <div class="pills"><button type="button" class="pill ${reg ? "" : "is-selected"}" data-m="login">Entrar</button><button type="button" class="pill ${reg ? "is-selected" : ""}" data-m="register">Criar conta</button></div>
-      <form id="a-form" novalidate><div class="field-grid acct-fields">${reg ? '<div class="field"><label for="a-name">Nome</label><input id="a-name" maxlength="60" autocomplete="name"></div>' : ""}<div class="field"><label for="a-phone">WhatsApp</label><input id="a-phone" type="tel" inputmode="tel" maxlength="15" placeholder="(22) 99999-9999" autocomplete="tel-national"></div><div class="field"><label for="a-pin">Senha (4 a 8 números)</label><input id="a-pin" type="password" inputmode="numeric" maxlength="8" autocomplete="${reg ? "new-password" : "current-password"}"></div></div>
+      <form id="a-form" novalidate><div class="field-grid acct-fields">${reg ? '<div class="field"><label for="a-name">Nome</label><input id="a-name" maxlength="60" autocomplete="name"></div>' : ""}<div class="field"><label for="a-phone">WhatsApp</label><input id="a-phone" type="tel" inputmode="tel" maxlength="15" placeholder="(22) 99999-9999" autocomplete="tel-national"></div><div class="field"><label for="a-pin">Senha (4 a 8 números)</label><input id="a-pin" type="password" inputmode="numeric" maxlength="8" autocomplete="${reg ? "new" : "current"}-password"></div></div>
       <p class="form-error" id="a-msg" role="alert"></p><button type="submit" class="btn btn-primary btn-sm" id="a-go">${reg ? "Criar minha conta" : "Entrar"}</button></form>`;
     acctEl.querySelectorAll("[data-m]").forEach((x) => x.addEventListener("click", () => { mode = x.dataset.m; clearError(); renderAcct(); }));
     const ph = $("a-phone"); ph.addEventListener("input", () => { ph.value = formatPhone(ph.value); });

@@ -1,6 +1,6 @@
 // Núcleo: tabelas, sessão, senha, limites e regras anti-"agendamento fantasma".
 const crypto = require("crypto");
-const { db } = require("./_db");
+const { db, aoFaltarTabela } = require("./_db");
 
 const HOLD_MIN = 90;     // reserva de cliente novo expira se o dono não confirmar
 const MAX_STRIKES = 3;   // faltas/reservas expiradas até bloquear o agendamento online
@@ -18,6 +18,8 @@ function init() {
   })().catch((e) => { ready = null; throw e; });
   return ready;
 }
+// se o banco for recriado/trocado com a função ainda "quente", as tabelas são criadas de novo
+aoFaltarTabela(() => { ready = null; });
 
 // ---- sessão (cookie HttpOnly assinado) ----
 const secret = () => crypto.createHash("sha256").update(`${process.env.DATABASE_URL || ""}|${process.env.ADMIN_PASSWORD || ""}|lz`).digest();
@@ -58,15 +60,18 @@ function checkPin(pin, stored) {
 
 // ---- limite de tentativas (janela fixa, guardado no banco) ----
 async function limite(chave, max, janelaMs) {
+  chave = String(chave).slice(0, 80);
   const now = Date.now();
   await db().query("INSERT INTO limites(chave,n,ate) VALUES(?,1,?) ON DUPLICATE KEY UPDATE n=IF(ate<?,1,n+1), ate=IF(ate<?,?,ate)", [chave, now + janelaMs, now, now, now + janelaMs]);
   const [[r]] = await db().query("SELECT n FROM limites WHERE chave=?", [chave]);
   if (Math.random() < 0.02) db().query("DELETE FROM limites WHERE ate<?", [now]).catch(() => {});
-  return r.n <= max;
+  return !r || r.n <= max;
 }
 
 // Libera reservas pendentes que ninguém confirmou e marca 1 falta (strike) para o cliente.
 async function sweep() {
+  const [[{ n }]] = await db().query("SELECT COUNT(*) n FROM agendamentos WHERE status='pendente' AND expira_em>0 AND expira_em<?", [Date.now()]);
+  if (!n) return;
   const c = await db().getConnection();
   try {
     await c.beginTransaction();
@@ -90,7 +95,8 @@ async function confiavel(id) {
   return r.n > 0;
 }
 async function publico(c) {
-  return { id: c.id, nome: c.nome, telefone: c.telefone, bloqueado: !!c.bloqueado, confiavel: await confiavel(c.id), maxAtivos: (await confiavel(c.id)) ? MAX_TRUSTED : MAX_NEW };
+  const ok = await confiavel(c.id);
+  return { id: c.id, nome: c.nome, telefone: c.telefone, bloqueado: !!c.bloqueado, confiavel: ok, maxAtivos: ok ? MAX_TRUSTED : MAX_NEW };
 }
 const shape = (a) => ({ id: a.id, data: a.data, hora: a.hora, veiculo: a.veiculo, extras: a.extras ? a.extras.split(",") : [], total: a.total, status: a.status, expira_em: Number(a.expira_em) });
 async function meus(id) {

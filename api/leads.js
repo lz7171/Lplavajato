@@ -15,7 +15,20 @@
 // "website" é uma armadilha para robôs: mantenha o campo escondido e vazio.
 
 const crypto = require('crypto');
-const { db } = require('./_db');
+const { db, aoFaltarTabela } = require('./_db');
+
+// Garante a tabela (igual a db/migrations/001_leads.sql) caso a migration não tenha rodado neste banco
+let pronto;
+function garantirTabela() {
+  if (!pronto) pronto = db().query(`CREATE TABLE IF NOT EXISTS leads (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(100) NOT NULL, email VARCHAR(190) NOT NULL,
+    message TEXT NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'novo', ip_hash CHAR(64) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_leads_created (created_at), INDEX idx_leads_ip (ip_hash, created_at)
+  ) DEFAULT CHARSET=utf8mb4`).catch((e) => { pronto = null; throw e; });
+  return pronto;
+}
+aoFaltarTabela(() => { pronto = null; });
 
 const STATUS = ['novo', 'lido', 'respondido'];
 const MAX_POR_HORA = 5; // envios por IP por hora
@@ -23,7 +36,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const COLS = 'id, name, email, message, status, created_at';
 
 function isAdmin(req) {
-  const token = process.env.ADMIN_TOKEN || '';
+  const token = String(process.env.ADMIN_TOKEN || '').trim();
   const got = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
   if (!token || !got) return false;
   const a = crypto.createHash('sha256').update(token).digest();
@@ -67,6 +80,7 @@ module.exports = async (req, res) => {
 
     // ---- criar (público) ----
     if (req.method === 'POST') {
+      await garantirTabela();
       const b = bodyOf(req);
       if (b.website) return res.status(201).json({ ok: true }); // robô: finge sucesso
       const { data, errors } = validate(b);
@@ -90,6 +104,7 @@ module.exports = async (req, res) => {
       return res.status(405).json({ ok: false, error: 'método não permitido' });
     }
     if (!isAdmin(req)) return res.status(401).json({ ok: false, error: 'não autorizado' });
+    await garantirTabela();
     const pool = db();
 
     if (req.method === 'GET') {
