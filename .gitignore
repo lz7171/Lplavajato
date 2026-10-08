@@ -1,17 +1,45 @@
+# dependências
 node_modules/
-.vercel/
+
+# Next.js / build
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+# testes
+coverage/
+test-results/
+playwright-report/
+
+# variáveis de ambiente e segredos (NUNCA versionar)
 .env
 .env.*
-*.log
-.DS_Store
-.vercel
-.env*
-node_modules
 !.env.example
-!.env.sample
-.gv/
 *.pem
 *.key
+
+# Vercel / Supabase local
+.vercel
+supabase/.branches
+supabase/.temp
+
+# sistema
+.DS_Store
+Thumbs.db
+*.log
+
+# pacote final gerado
+dist/
+*.zip
+
+# testes E2E locais
+.e2e-storage/
+.e2e-*.log
+node_modules
+!.env.sample
+.gv/
 *.p12
 *.pfx
 id_rsa
@@ -19,3 +47,5 @@ id_rsa.*
 id_ed25519*
 service-account*.json
 credentials.json
+dist
+.next
